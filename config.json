@@ -47,8 +47,47 @@
     {
       "pdu_id": 4,
       "connected_ups_id": [3, 4],
-      "connected_device_type": "server_hosts_5gc",
-      "connected_device_id": 4
+      "connected_device_type": "wireless_server",
+      "connected_device_id": 1
+    }
+  ],
+  "NormalServer": [
+    {
+      "server_id": 1,
+      "connected_pdu_id": 1,
+      "CPU_util": 0.5,
+      "GPU_util": 0.9,
+      "power_usage": 300
+    }
+  ],
+  "WirelessServer": [
+    {
+      "server_id": 1,
+      "connected_pdu_id": 4,
+      "CPU_util": 0.5,
+      "power_usage": 300,
+      "connected_gnb_id": 1
+    }
+  ],
+  "gNB": [
+    {
+      "gNB_id": 1,
+      "core_server_id": 1,
+      "connected_ue_list": [1, 2, 3]
+    }
+  ],
+  "UE": [
+    {
+      "ue_id": 1,
+      "connected_gnb_id": 1
+    },
+    {
+      "ue_id": 2,
+      "connected_gnb_id": 1
+    },
+    {
+      "ue_id": 3,
+      "connected_gnb_id": 1
     }
   ]
 }
