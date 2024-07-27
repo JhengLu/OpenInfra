@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from controller import Controller
 
-
 def draw_structure(controller):
     print("UPS to PDU Connections:")
     for ups in controller.ups_list:
@@ -10,9 +9,7 @@ def draw_structure(controller):
 
     print("\nPDU to Device Connections:")
     for pdu in controller.pdu_list:
-        print(
-            f"PDU {pdu.pdu_id} (UPS: {', '.join(map(str, pdu.connected_ups_id))}) -> Device Type: {pdu.connected_device_type}, Device ID: {pdu.connected_device_id}")
-
+        print(f"PDU {pdu.pdu_id} (UPS: {', '.join(map(str, pdu.connected_ups_id))}) -> Device Type: {pdu.connected_device_type}, Device ID: {pdu.connected_device_id}")
 
 def draw_topology(controller):
     G = nx.DiGraph()
@@ -36,30 +33,35 @@ def draw_topology(controller):
     # Define a layout for hierarchical structure
     pos = nx.multipartite_layout(G, subset_key="layer")
 
-    # Transform the layout to be top-to-bottom
-    pos = {k: (v[1], -v[0]) for k, v in pos.items()}
+    # Sort nodes within each layer to ensure the small numbers start from the left
+    layers = {0: [], 1: [], 2: []}
+    for node, (x, y) in pos.items():
+        layer = int(G.nodes[node]['type'] == 'UPS') + int(G.nodes[node]['type'] == 'PDU') * 2
+        layers[layer].append((node, x, y))
+
+    for layer in layers.values():
+        layer.sort(key=lambda x: int(x[0].split()[-1]))  # Sort by the numeric part of the identifier
+
+    new_pos = {}
+    for i, layer in enumerate(layers.values()):
+        for j, (node, x, y) in enumerate(layer):
+            new_pos[node] = (j, -i)
 
     # Draw the graph
     plt.figure(figsize=(10, 8))
-    nx.draw(G, pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold',
-            edge_color='gray')
-    nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'UPS'], node_color='green',
-                           node_size=3000)
-    nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'PDU'],
-                           node_color='lightgreen', node_size=3000)
-    nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'Device'], node_color='orange',
-                           node_size=3000)
+    nx.draw(G, new_pos, with_labels=True, node_size=3000, node_color='skyblue', font_size=10, font_weight='bold', edge_color='gray')
+    nx.draw_networkx_nodes(G, new_pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'UPS'], node_color='green', node_size=3000)
+    nx.draw_networkx_nodes(G, new_pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'PDU'], node_color='lightgreen', node_size=3000)
+    nx.draw_networkx_nodes(G, new_pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'Device'], node_color='orange', node_size=3000)
 
     plt.title("Datacenter Topology")
     plt.show()
-
 
 def main():
     controller = Controller.from_config('config.json')
     draw_structure(controller)
     draw_topology(controller)
     controller.start_simulation(duration=5)
-
 
 if __name__ == "__main__":
     main()
