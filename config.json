@@ -35,7 +35,7 @@
     {
       "pdu_id": 2,
       "connected_ups_id": [1, 2],
-      "connected_device_type": "cooling_sys_sim",
+      "connected_device_type": "normal_server",
       "connected_device_id": 2
     },
     {
@@ -89,5 +89,8 @@
       "ue_id": 3,
       "connected_gnb_id": 1
     }
-  ]
+  ],
+  "CoolSys": {
+    "env_temperature": 40
+  }
 }

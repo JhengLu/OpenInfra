@@ -26,6 +26,9 @@ def draw_structure(controller):
     for ue in controller.ue_list:
         print(f"UE {ue.ue_id} -> gNB {ue.connected_gnb_id}")
 
+    print("\nCooling System Info:")
+    print(f"CoolSys -> env_temperature: {controller.cool_sys.env_temperature}, cool_load: {controller.cool_sys.cool_load}")
+
 def draw_topology(controller):
     G = nx.DiGraph()
 
