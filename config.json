@@ -2,35 +2,51 @@
   "UPS": [
     {
       "ups_id": 1,
-      "power_capacity": 24000,
-      "power_limit": 0.8,
+      "power_capacity": 12000,
+      "power_limit": "2/3",
       "connected_pdu_list": [1, 2],
-      "connected_normal_racks": [1],
-      "connected_wireless_racks": []
+      "battery": {
+        "capacity": 3600000,
+        "initial_soc": 1,
+        "min_soc": 0.2,
+        "charge_rate": 100
+      }
     },
     {
       "ups_id": 2,
-      "power_capacity": 24000,
-      "power_limit": 0.8,
+      "power_capacity": 12000,
+      "power_limit": "2/3",
       "connected_pdu_list": [2, 3],
-      "connected_normal_racks": [2],
-      "connected_wireless_racks": []
+      "battery": {
+        "capacity": 3600000,
+        "initial_soc": 1,
+        "min_soc": 0.2,
+        "charge_rate": 100
+      }
     },
     {
       "ups_id": 3,
-      "power_capacity": 24000,
-      "power_limit": 0.8,
+      "power_capacity": 12000,
+      "power_limit": "2/3",
       "connected_pdu_list": [3, 4],
-      "connected_normal_racks": [],
-      "connected_wireless_racks": [1]
+      "battery": {
+        "capacity": 3600000,
+        "initial_soc": 1,
+        "min_soc": 0.2,
+        "charge_rate": 100
+      }
     },
     {
       "ups_id": 4,
-      "power_capacity": 24000,
-      "power_limit": 0.8,
+      "power_capacity": 12000,
+      "power_limit": "2/3",
       "connected_pdu_list": [1, 4],
-      "connected_normal_racks": [],
-      "connected_wireless_racks": [2]
+      "battery": {
+        "capacity": 3600000,
+        "initial_soc": 1,
+        "min_soc": 0.2,
+        "charge_rate": 100
+      }
     }
   ],
   "PDU": [
