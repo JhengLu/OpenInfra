@@ -7,7 +7,7 @@ class PowerGenerator:
         self.generated_power = 0
 
     def generate_power(self):
-        self.generated_power = 27000
+        self.generated_power = 35000
         return self.generated_power
 
 class Battery:
@@ -28,6 +28,12 @@ class Battery:
         self.charge_level -= amount
         if self.charge_level < self.min_soc * self.capacity:
             self.charge_level = self.min_soc * self.capacity
+        return amount
+
+    def charge(self, amount):
+        self.charge_level += amount
+        if self.charge_level > self.capacity:
+            self.charge_level = self.capacity
         return amount
 
 class UPS:

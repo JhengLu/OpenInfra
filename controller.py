@@ -1,5 +1,6 @@
 import json
 import csv
+import random
 from power import PowerGenerator, UPS, PDU, Battery
 from server import Server, Rack
 from wireless import gNB, UE
@@ -49,7 +50,14 @@ class Controller:
                 )
             ) for ups_config in config['UPS']
         ]
-        pdu_list = [PDU(**pdu_config) for pdu_config in config['PDU']]
+        pdu_list = [
+            PDU(
+                pdu_config['pdu_id'],
+                pdu_config['connected_ups_id'],
+                pdu_config['connected_device_type'],
+                pdu_config['connected_device_id']
+            ) for pdu_config in config['PDU']
+        ]
 
         normal_racks = []
         for rack_config in config['NormalRacks']:
@@ -79,11 +87,13 @@ class Controller:
         self.received_power = self.generator.generate_power()
         print(f"Controller received power: {self.received_power:.2f} units")
 
-    def simulate_server_power_usage(self):
+    def simulate_server_power_usage(self, load_percentage):
         total_power_usage = 0
         for rack in self.normal_racks + self.wireless_racks:
             for server in rack.server_list:
-                server_power_usage = server.simulate_load(self.power_dict)
+                # Round to nearest multiple of 10
+                target_load = round(load_percentage / 10) * 10
+                server_power_usage = self.power_dict[target_load]
                 total_power_usage += server_power_usage
                 print(f"Server {server.server_id} power usage: {server_power_usage} W")
 
@@ -103,16 +113,34 @@ class Controller:
             actual_discharge = battery.discharge(discharge_amount)
             print(f"UPS {ups.ups_id} battery discharged by {actual_discharge:.2f} units")
 
+    def charge_batteries(self, surplus):
+        print(f"Total power surplus: {surplus:.2f} units")
+        for ups in self.ups_list:
+            battery = ups.battery
+            charge_amount = surplus / len(self.ups_list)
+            actual_charge = battery.charge(charge_amount)
+            print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
+
+    def trace_control(self, t):
+        if t < 300:  # First 5 minutes
+            return 30, 60
+        elif 300 <= t < 360:  # Next 1 minute
+            return 90, 100
+        else:  # Back to 30%-60% load
+            return 30, 60
+
     def start_simulation(self, duration=10):
         print(f"Initial Cooling System Power Usage: {self.cool_sys.cool_load} W")
 
         with open('power_usage.csv', mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(['Time', 'Battery Charge Level', 'Total Power Usage', 'Server Power Usage', 'Cool Power Usage', 'Other Power Usage'])
+            writer.writerow(['Time', 'Generated Power', 'Battery Charge Level', 'Total Power Usage', 'Server Power Usage', 'Cool Power Usage', 'Other Power Usage'])
 
             for t in range(duration):
                 self.receive_power()
-                server_power_usage = self.simulate_server_power_usage()
+                load_min, load_max = self.trace_control(t)
+                load_percentage = random.randint(load_min, load_max)
+                server_power_usage = self.simulate_server_power_usage(load_percentage)
                 cool_power_usage = self.cool_sys.simulate_coolsys_power_usage(server_power_usage)
                 other_power_usage = self.simulate_trivial_power_usage(server_power_usage)
 
@@ -126,14 +154,22 @@ class Controller:
                 if total_power_usage > self.received_power or server_power_usage > total_ups_capacity_limit:
                     deficit = max(total_power_usage - self.received_power, server_power_usage - total_ups_capacity_limit)
                     self.discharge_batteries(deficit)
+                else:
+                    surplus = self.received_power - total_power_usage
+                    self.charge_batteries(surplus)
 
                 # Save the current state to CSV
                 for ups in self.ups_list:
                     writer.writerow([
                         t,
+                        self.received_power,
                         ups.battery.charge_level,
                         total_power_usage,
                         server_power_usage,
                         cool_power_usage,
                         other_power_usage
                     ])
+
+if __name__ == "__main__":
+    controller = Controller.from_config('config.json')
+    controller.start_simulation(duration=900)

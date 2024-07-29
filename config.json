@@ -4,7 +4,7 @@
       "ups_id": 1,
       "power_capacity": 12000,
       "power_limit": "2/3",
-      "connected_pdu_list": [1, 2],
+      "connected_pdu_list": [1, 3],
       "battery": {
         "capacity": 3600000,
         "initial_soc": 1,
@@ -16,7 +16,7 @@
       "ups_id": 2,
       "power_capacity": 12000,
       "power_limit": "2/3",
-      "connected_pdu_list": [2, 3],
+      "connected_pdu_list": [2],
       "battery": {
         "capacity": 3600000,
         "initial_soc": 1,
@@ -28,19 +28,7 @@
       "ups_id": 3,
       "power_capacity": 12000,
       "power_limit": "2/3",
-      "connected_pdu_list": [3, 4],
-      "battery": {
-        "capacity": 3600000,
-        "initial_soc": 1,
-        "min_soc": 0.2,
-        "charge_rate": 100
-      }
-    },
-    {
-      "ups_id": 4,
-      "power_capacity": 12000,
-      "power_limit": "2/3",
-      "connected_pdu_list": [1, 4],
+      "connected_pdu_list": [4],
       "battery": {
         "capacity": 3600000,
         "initial_soc": 1,
@@ -52,50 +40,50 @@
   "PDU": [
     {
       "pdu_id": 1,
-      "connected_ups_id": [1, 4],
-      "connected_device_type": "normal_rack",
-      "connected_device_id": 1
+      "connected_ups_id": [1],
+      "connected_device_type": ["normal_rack", "normal_rack"],
+      "connected_device_id": [1, 2]
     },
     {
       "pdu_id": 2,
-      "connected_ups_id": [1, 2],
-      "connected_device_type": "normal_rack",
-      "connected_device_id": 2
+      "connected_ups_id": [2],
+      "connected_device_type": ["normal_rack", "normal_rack"],
+      "connected_device_id": [1, 2]
     },
     {
       "pdu_id": 3,
-      "connected_ups_id": [2, 3],
-      "connected_device_type": "normal_rack",
-      "connected_device_id": 3
+      "connected_ups_id": [1],
+      "connected_device_type": ["normal_rack", "wireless_rack"],
+      "connected_device_id": [3, 1]
     },
     {
       "pdu_id": 4,
-      "connected_ups_id": [3, 4],
-      "connected_device_type": "wireless_rack",
-      "connected_device_id": 1
+      "connected_ups_id": [3],
+      "connected_device_type": ["normal_rack", "wireless_rack"],
+      "connected_device_id": [3, 1]
     }
   ],
   "NormalRacks": [
     {
       "rack_id": 1,
-      "connected_pdu_id": 1,
+      "connected_pdu_id": [1,2],
       "number_of_servers": 40
     },
     {
       "rack_id": 2,
-      "connected_pdu_id": 2,
+      "connected_pdu_id": [1,2],
       "number_of_servers": 40
     },
     {
       "rack_id": 3,
-      "connected_pdu_id": 3,
+      "connected_pdu_id": [3,4],
       "number_of_servers": 40
     }
   ],
   "WirelessRacks": [
     {
       "rack_id": 1,
-      "connected_pdu_id": 4,
+      "connected_pdu_id": [3,4],
       "number_of_servers": 40,
       "connected_gnb_id": 1
     }
