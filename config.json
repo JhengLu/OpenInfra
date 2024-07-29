@@ -2,77 +2,92 @@
   "UPS": [
     {
       "ups_id": 1,
-      "power_capacity": 500,
+      "power_capacity": 24000,
       "power_limit": 0.8,
-      "connected_pdu_list": [1, 2]
+      "connected_pdu_list": [1, 2],
+      "connected_normal_racks": [1],
+      "connected_wireless_racks": []
     },
     {
       "ups_id": 2,
-      "power_capacity": 500,
+      "power_capacity": 24000,
       "power_limit": 0.8,
-      "connected_pdu_list": [2, 3]
+      "connected_pdu_list": [2, 3],
+      "connected_normal_racks": [2],
+      "connected_wireless_racks": []
     },
     {
       "ups_id": 3,
-      "power_capacity": 500,
+      "power_capacity": 24000,
       "power_limit": 0.8,
-      "connected_pdu_list": [3, 4]
+      "connected_pdu_list": [3, 4],
+      "connected_normal_racks": [],
+      "connected_wireless_racks": [1]
     },
     {
       "ups_id": 4,
-      "power_capacity": 500,
+      "power_capacity": 24000,
       "power_limit": 0.8,
-      "connected_pdu_list": [1, 4]
+      "connected_pdu_list": [1, 4],
+      "connected_normal_racks": [],
+      "connected_wireless_racks": [2]
     }
   ],
   "PDU": [
     {
       "pdu_id": 1,
       "connected_ups_id": [1, 4],
-      "connected_device_type": "normal_server",
+      "connected_device_type": "normal_rack",
       "connected_device_id": 1
     },
     {
       "pdu_id": 2,
       "connected_ups_id": [1, 2],
-      "connected_device_type": "normal_server",
+      "connected_device_type": "normal_rack",
       "connected_device_id": 2
     },
     {
       "pdu_id": 3,
       "connected_ups_id": [2, 3],
-      "connected_device_type": "normal_server",
+      "connected_device_type": "normal_rack",
       "connected_device_id": 3
     },
     {
       "pdu_id": 4,
       "connected_ups_id": [3, 4],
-      "connected_device_type": "wireless_server",
+      "connected_device_type": "wireless_rack",
       "connected_device_id": 1
     }
   ],
-  "NormalServer": [
+  "NormalRacks": [
     {
-      "server_id": 1,
+      "rack_id": 1,
       "connected_pdu_id": 1,
-      "CPU_util": 0.5,
-      "GPU_util": 0.9,
-      "power_usage": 300
+      "number_of_servers": 40
+    },
+    {
+      "rack_id": 2,
+      "connected_pdu_id": 2,
+      "number_of_servers": 40
+    },
+    {
+      "rack_id": 3,
+      "connected_pdu_id": 3,
+      "number_of_servers": 40
     }
   ],
-  "WirelessServer": [
+  "WirelessRacks": [
     {
-      "server_id": 1,
+      "rack_id": 1,
       "connected_pdu_id": 4,
-      "CPU_util": 0.5,
-      "power_usage": 300,
+      "number_of_servers": 40,
       "connected_gnb_id": 1
     }
   ],
   "gNB": [
     {
       "gNB_id": 1,
-      "core_server_id": 1,
+      "connected_rack_id": 1,
       "connected_ue_list": [1, 2, 3]
     }
   ],
