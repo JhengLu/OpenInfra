@@ -37,16 +37,18 @@ class Battery:
         return amount
 
 class UPS:
-    def __init__(self, ups_id, power_capacity, power_limit, connected_pdu_list, battery):
+    def __init__(self, ups_id, power_capacity, power_limit, connected_pdu_list, battery, online=True):
         self.ups_id = ups_id
         self.power_capacity = power_capacity
         self.power_limit = power_limit
         self.connected_pdu_list = connected_pdu_list
         self.battery = battery
+        self.online = online
 
 class PDU:
-    def __init__(self, pdu_id, connected_ups_id, connected_device_type, connected_device_id):
+    def __init__(self, pdu_id, connected_ups_id, connected_device_type, connected_device_id, online=True):
         self.pdu_id = pdu_id
         self.connected_ups_id = connected_ups_id
         self.connected_device_type = connected_device_type
         self.connected_device_id = connected_device_id
+        self.online = online

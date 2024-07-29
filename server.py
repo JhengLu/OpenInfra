@@ -14,10 +14,12 @@ class Server:
         return self.power_usage
 
 class Rack:
-    def __init__(self, rack_id, connected_pdu_id):
+    def __init__(self, rack_id, connected_pdu_id, priority):
         self.rack_id = rack_id
         self.connected_pdu_id = connected_pdu_id
+        self.priority = priority
         self.server_list = []
+        self.max_power_load_percentage = 100
 
     def add_server(self, server):
         self.server_list.append(server)

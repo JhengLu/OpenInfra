@@ -1,9 +1,18 @@
 {
+  "background":
+          [
+            {
+              "battery_control_limit": 0.4,
+              "battery_recover_signal": 0.7,
+              "minimal_server_load": 0.1
+            }
+          ],
   "UPS": [
     {
       "ups_id": 1,
       "power_capacity": 12000,
       "power_limit": "2/3",
+      "online": true,
       "connected_pdu_list": [1, 3],
       "battery": {
         "capacity": 3600000,
@@ -16,6 +25,7 @@
       "ups_id": 2,
       "power_capacity": 12000,
       "power_limit": "2/3",
+      "online": true,
       "connected_pdu_list": [2],
       "battery": {
         "capacity": 3600000,
@@ -28,6 +38,7 @@
       "ups_id": 3,
       "power_capacity": 12000,
       "power_limit": "2/3",
+      "online": true,
       "connected_pdu_list": [4],
       "battery": {
         "capacity": 3600000,
@@ -40,24 +51,28 @@
   "PDU": [
     {
       "pdu_id": 1,
+      "online": true,
       "connected_ups_id": [1],
       "connected_device_type": ["normal_rack", "normal_rack"],
       "connected_device_id": [1, 2]
     },
     {
       "pdu_id": 2,
+      "online": true,
       "connected_ups_id": [2],
       "connected_device_type": ["normal_rack", "normal_rack"],
       "connected_device_id": [1, 2]
     },
     {
       "pdu_id": 3,
+      "online": true,
       "connected_ups_id": [1],
       "connected_device_type": ["normal_rack", "wireless_rack"],
       "connected_device_id": [3, 1]
     },
     {
       "pdu_id": 4,
+      "online": true,
       "connected_ups_id": [3],
       "connected_device_type": ["normal_rack", "wireless_rack"],
       "connected_device_id": [3, 1]
@@ -66,16 +81,19 @@
   "NormalRacks": [
     {
       "rack_id": 1,
+      "priority": 1,
       "connected_pdu_id": [1,2],
       "number_of_servers": 40
     },
     {
       "rack_id": 2,
+      "priority": 2,
       "connected_pdu_id": [1,2],
       "number_of_servers": 40
     },
     {
       "rack_id": 3,
+      "priority": 3,
       "connected_pdu_id": [3,4],
       "number_of_servers": 40
     }
@@ -83,6 +101,7 @@
   "WirelessRacks": [
     {
       "rack_id": 1,
+      "priority": 4,
       "connected_pdu_id": [3,4],
       "number_of_servers": 40,
       "connected_gnb_id": 1
