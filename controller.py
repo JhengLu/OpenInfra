@@ -139,10 +139,20 @@ class Controller:
     def trace_control(self, t):
         if t < 300:  # First 5 minutes
             return 30, 60
-        elif 300 <= t < 900:  # Next 1 minute
-            return 90, 100
+        # elif 300 <= t < 1200:  # Next 15 minutes
+        #     return 90, 100
         else:  # Back to 30%-60% load
-            return 30, 60
+            return 90, 100
+
+    def get_ups_limit(self):
+        for ups in self.ups_list:
+            if ups.online:
+                return ups.power_limit
+
+    def increase_ups_limit(self):
+        for ups in self.ups_list:
+            if ups.online:
+                ups.power_limit = min(0.1 + ups.power_limit, 1)
 
     def control_rack_loads(self):
         """
@@ -158,15 +168,19 @@ class Controller:
             [ups for ups in self.ups_list if ups.online])
 
         if total_battery_soc < self.battery_control_limit:
-            # Reduce load for one rack
-            for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
-                if rack.max_power_load_percentage > self.minimal_server_load_percentage:
-                    rack.max_power_load_percentage -= 10
-                    print(f"Reducing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
-                    return  # Only reduce one rack at a time
-                else:
-                    print(f"The max load of rack {rack.rack_id} is already at the minimal limit, moving to the next rack.")
-                    continue
+            if self.get_ups_limit() == 1:
+                # Reduce load for one rack
+                for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
+                    if rack.max_power_load_percentage > self.minimal_server_load_percentage:
+                        rack.max_power_load_percentage -= 10
+                        print(f"Reducing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
+                        return  # Only reduce one rack at a time
+                    else:
+                        print(f"The max load of rack {rack.rack_id} is already at the minimal limit, moving to the next rack.")
+                        continue
+            else:
+                self.increase_ups_limit()
+
         elif total_battery_soc > self.battery_recover_signal:
             # Increase load for one rack
             for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority, reverse=True):
@@ -187,6 +201,7 @@ class Controller:
                 ['Time', 'Generated Power'] +
                 [f'UPS {ups.ups_id} Battery Charge Level' for ups in self.ups_list] +
                 [f'UPS {ups.ups_id} Status' for ups in self.ups_list] +
+                [f'UPS {ups.ups_id} Deliverable Power' for ups in self.ups_list] +
                 ['Total Power Usage', 'Server Power Usage', 'Cool Power Usage', 'Other Power Usage', 'Online UPS Power'] +
                 [f'Normal Rack {rack.rack_id} Max Load %' for rack in self.normal_racks] +
                 [f'Wireless Rack {rack.rack_id} Max Load %' for rack in self.wireless_racks] +
@@ -201,6 +216,16 @@ class Controller:
                     for server in rack.server_list:
                         server.load_percentage = load_percentage
 
+                # Set UPS 4 to offline at 1200 seconds
+                """
+                uncomment it to create UPS failure
+                """
+                # if t == 1200:
+                #     for ups in self.ups_list:
+                #         if ups.ups_id == 3:
+                #             ups.online = False
+                #             print(f"UPS 4 has gone offline at {t} seconds")
+
                 self.control_rack_loads()
                 server_power_usage = self.simulate_server_power_usage()
                 cool_power_usage = self.cool_sys.simulate_coolsys_power_usage(server_power_usage)
@@ -210,15 +235,17 @@ class Controller:
                 print(f"Total Power Usage: {total_power_usage:.2f} W")
 
                 # Calculate the total UPS capacity limit
-                total_ups_capacity_limit = sum(
+                online_ups_power = sum(
                     ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
-                print(f"Total UPS capacity limit: {total_ups_capacity_limit:.2f} W")
+                print(f"Total UPS capacity limit: {online_ups_power:.2f} W")
 
-                online_ups_power = sum(ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
+                deliverable_ups_power = [
+                    ups.power_capacity * ups.power_limit if ups.online else 0 for ups in self.ups_list
+                ]
 
-                if total_power_usage > self.received_power or server_power_usage > total_ups_capacity_limit:
+                if total_power_usage > self.received_power or server_power_usage > online_ups_power:
                     deficit = max(total_power_usage - self.received_power,
-                                  server_power_usage - total_ups_capacity_limit)
+                                  server_power_usage - online_ups_power)
                     self.discharge_batteries(deficit)
                 else:
                     surplus = self.received_power - total_power_usage
@@ -229,6 +256,7 @@ class Controller:
                     [t, self.received_power] +
                     [ups.battery.charge_level for ups in self.ups_list] +
                     [ups.online for ups in self.ups_list] +
+                    deliverable_ups_power +
                     [total_power_usage, server_power_usage, cool_power_usage, other_power_usage, online_ups_power] +
                     [rack.max_power_load_percentage for rack in self.normal_racks + self.wireless_racks] +
                     [self.battery_control_limit * self.ups_list[0].battery.capacity] +
