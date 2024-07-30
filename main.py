@@ -83,6 +83,7 @@ def draw_topology(controller):
                            node_size=3000)
 
     plt.title("Datacenter Topology")
+    plt.savefig('topology.pdf')
     plt.show()
 
 def main():
