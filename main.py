@@ -90,7 +90,7 @@ def main():
     controller = Controller.from_config('config.json')
     draw_structure(controller)
     draw_topology(controller)
-    controller.start_simulation(duration=2600)
+    controller.start_simulation(duration=1000)
 
 if __name__ == "__main__":
     main()

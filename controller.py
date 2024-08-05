@@ -1,7 +1,7 @@
 import json
 import csv
 import random
-from power import PowerGenerator, UPS, PDU, Battery, Battery2
+from power import PowerGenerator, UPS, PDU, Battery, Battery2,PyBammBattery, charge_batteries,discharge_batteries
 from server import Server, Rack
 from wireless import gNB, UE
 from cooling import CoolSys
@@ -56,6 +56,13 @@ class Controller:
                 )
             elif battery_type == 2:
                 return Battery2(
+                    battery_config['capacity'],
+                    battery_config['initial_soc'],
+                    battery_config['min_soc'],
+                    battery_config['charge_rate']
+                )
+            elif battery_type == 3:
+                return PyBammBattery(
                     battery_config['capacity'],
                     battery_config['initial_soc'],
                     battery_config['min_soc'],
@@ -134,9 +141,9 @@ class Controller:
         return 0.1 * server_power_usage
 
     def trace_control(self, t):
-        if t < 300:  # First 5 minutes
+        if t < 100:  # First 5 minutes
             return 30, 60
-        elif 300 <= t < 700:  # Next 15 minutes
+        elif 100 <= t < 200:  # Next 15 minutes
             return 90, 100
         else:  # Back to 30%-60% load
             return 30, 60
@@ -244,16 +251,19 @@ class Controller:
                 if total_power_usage > self.received_power or server_power_usage > online_ups_power:
                     deficit_power = max(total_power_usage - self.received_power,
                                   server_power_usage - online_ups_power)
-                    if self.battery_type == 2:
-                        Battery2.discharge_batteries(self.ups_list, deficit_power, time_step)
-                    else:
-                        Battery.discharge_batteries(self.ups_list, deficit_power, time_step)
+                    discharge_batteries(self.ups_list, deficit_power, time_step)
+                    # if self.battery_type == 2:
+                    #     Battery2.discharge_batteries(self.ups_list, deficit_power, time_step)
+                    # else:
+                    #     Battery.discharge_batteries(self.ups_list, deficit_power, time_step)
                 else:
                     surplus_power = self.received_power - total_power_usage
-                    if self.battery_type == 2:
-                        Battery2.charge_batteries(self.ups_list, surplus_power, time_step)
-                    else:
-                        Battery.charge_batteries(self.ups_list, surplus_power, time_step)
+                    charge_batteries(self.ups_list, surplus_power, time_step)
+                    # if self.battery_type == 2:
+                    #     Battery2.charge_batteries(self.ups_list, surplus_power, time_step)
+                    # else:
+                    #     Battery.charge_batteries(self.ups_list, surplus_power, time_step)
+
 
                 # Save the current state to CSV
                 writer.writerow(

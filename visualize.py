@@ -4,6 +4,13 @@ import pandas as pd
 def plot_power_usage(csv_file):
     data = pd.read_csv(csv_file)
 
+    # Calculate the total UPS deliverable power
+    data['Total UPS Deliverable Power'] = 0
+    for ups_id in range(1, 4):
+        status_col = f'UPS {ups_id} Status'
+        power_col = f'UPS {ups_id} Deliverable Power'
+        data['Total UPS Deliverable Power'] += data[power_col] * data[status_col]
+
     # Create a figure with two rows and two columns of subplots
     fig, axs = plt.subplots(2, 2, figsize=(14, 10))
 
@@ -13,6 +20,7 @@ def plot_power_usage(csv_file):
     axs[0, 0].plot(data['Time'], data['Server Power Usage'], label='Server Power Usage', linestyle='-', linewidth=1)
     axs[0, 0].plot(data['Time'], data['Cool Power Usage'], label='Cool Power Usage', linestyle='-', linewidth=1)
     axs[0, 0].plot(data['Time'], data['Other Power Usage'], label='Other Power Usage', linestyle='-', linewidth=1)
+    axs[0, 0].plot(data['Time'], data['Total UPS Deliverable Power'], label='Total UPS Deliverable Power', linestyle='-', linewidth=2, color='k')
 
     axs[0, 0].set_xlabel('Time (seconds)')
     axs[0, 0].set_ylabel('Power (W)')
@@ -31,7 +39,7 @@ def plot_power_usage(csv_file):
     axs[0, 1].axhline(y=data['Battery Recover Signal'].iloc[0], color='g', linestyle='--', label='Battery Recover Signal')
 
     axs[0, 1].set_xlabel('Time (seconds)')
-    axs[0, 1].set_ylabel('Charge Level (Wh)')
+    axs[0, 1].set_ylabel('Charge Level (Ws)')
     axs[0, 1].set_title('Battery Charge Level Over Time')
     axs[0, 1].legend()
     axs[0, 1].grid(True)
