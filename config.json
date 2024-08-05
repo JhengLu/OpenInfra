@@ -4,7 +4,8 @@
             {
               "battery_control_limit": 0.4,
               "battery_recover_signal": 0.7,
-              "minimal_server_load": 0.1
+              "minimal_server_load": 0.1,
+              "battery_type": 1
             }
           ],
   "UPS": [

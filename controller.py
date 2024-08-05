@@ -1,14 +1,14 @@
 import json
 import csv
 import random
-from power import PowerGenerator, UPS, PDU, Battery
+from power import PowerGenerator, UPS, PDU, Battery, Battery2
 from server import Server, Rack
 from wireless import gNB, UE
 from cooling import CoolSys
 
 class Controller:
     def __init__(self, generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
-                 battery_control_limit, battery_recover_signal, minimal_server_load_percentage):
+                 battery_control_limit, battery_recover_signal, minimal_server_load_percentage, battery_type):
         self.generator = generator
         self.ups_list = ups_list
         self.pdu_list = pdu_list
@@ -34,6 +34,7 @@ class Controller:
             10: 98,
             0: 58.4
         }
+        self.battery_type = battery_type
 
     @classmethod
     def from_config(cls, config_path):
@@ -43,6 +44,25 @@ class Controller:
         background = config['background'][0]
         battery_control_limit = background['battery_control_limit']
         battery_recover_signal = background['battery_recover_signal']
+        battery_type = background['battery_type']
+
+        def create_battery(battery_config):
+            if battery_type == 1:
+                return Battery(
+                    battery_config['capacity'],
+                    battery_config['initial_soc'],
+                    battery_config['min_soc'],
+                    battery_config['charge_rate']
+                )
+            elif battery_type == 2:
+                return Battery2(
+                    battery_config['capacity'],
+                    battery_config['initial_soc'],
+                    battery_config['min_soc'],
+                    battery_config['charge_rate']
+                )
+            else:
+                raise ValueError(f"Unknown battery type: {battery_type}")
 
         ups_list = [
             UPS(
@@ -50,12 +70,7 @@ class Controller:
                 ups_config['power_capacity'],
                 eval(ups_config['power_limit']),  # Convert the string "2/3" to a fraction
                 ups_config['connected_pdu_list'],
-                Battery(
-                    ups_config['battery']['capacity'],
-                    ups_config['battery']['initial_soc'],
-                    ups_config['battery']['min_soc'],
-                    ups_config['battery']['charge_rate']
-                ),
+                create_battery(ups_config['battery']),
                 ups_config['online']
             ) for ups_config in config['UPS']
         ]
@@ -94,7 +109,7 @@ class Controller:
         minimal_server_load_percentage = 40  # Define minimal load percentage
 
         return cls(generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
-                   battery_control_limit, battery_recover_signal, minimal_server_load_percentage)
+                   battery_control_limit, battery_recover_signal, minimal_server_load_percentage, battery_type)
 
     def receive_power(self):
         self.received_power = self.generator.generate_power()
@@ -118,31 +133,13 @@ class Controller:
         """
         return 0.1 * server_power_usage
 
-    def discharge_batteries(self, deficit):
-        print(f"Total power deficit: {deficit:.2f} units")
-        for ups in self.ups_list:
-            if ups.online:
-                battery = ups.battery
-                discharge_amount = deficit / len(self.ups_list)
-                actual_discharge = battery.discharge(discharge_amount)
-                print(f"UPS {ups.ups_id} battery discharged by {actual_discharge:.2f} units")
-
-    def charge_batteries(self, surplus):
-        print(f"Total power surplus: {surplus:.2f} units")
-        for ups in self.ups_list:
-            if ups.online:
-                battery = ups.battery
-                charge_amount = surplus / len(self.ups_list)
-                actual_charge = battery.charge(charge_amount)
-                print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
-
     def trace_control(self, t):
         if t < 300:  # First 5 minutes
             return 30, 60
-        # elif 300 <= t < 1200:  # Next 15 minutes
-        #     return 90, 100
-        else:  # Back to 30%-60% load
+        elif 300 <= t < 700:  # Next 15 minutes
             return 90, 100
+        else:  # Back to 30%-60% load
+            return 30, 60
 
     def get_ups_limit(self):
         for ups in self.ups_list:
@@ -243,13 +240,20 @@ class Controller:
                     ups.power_capacity * ups.power_limit if ups.online else 0 for ups in self.ups_list
                 ]
 
+                time_step = 1
                 if total_power_usage > self.received_power or server_power_usage > online_ups_power:
-                    deficit = max(total_power_usage - self.received_power,
+                    deficit_power = max(total_power_usage - self.received_power,
                                   server_power_usage - online_ups_power)
-                    self.discharge_batteries(deficit)
+                    if self.battery_type == 2:
+                        Battery2.discharge_batteries(self.ups_list, deficit_power, time_step)
+                    else:
+                        Battery.discharge_batteries(self.ups_list, deficit_power, time_step)
                 else:
-                    surplus = self.received_power - total_power_usage
-                    self.charge_batteries(surplus)
+                    surplus_power = self.received_power - total_power_usage
+                    if self.battery_type == 2:
+                        Battery2.charge_batteries(self.ups_list, surplus_power, time_step)
+                    else:
+                        Battery.charge_batteries(self.ups_list, surplus_power, time_step)
 
                 # Save the current state to CSV
                 writer.writerow(
@@ -265,4 +269,4 @@ class Controller:
 
 if __name__ == "__main__":
     controller = Controller.from_config('config.json')
-    controller.start_simulation(duration=900)
+    controller.start_simulation(duration=2600)
