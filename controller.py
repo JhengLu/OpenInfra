@@ -2,13 +2,13 @@ import json
 import csv
 import random
 from power import PowerGenerator, UPS, PDU, Battery, Battery2,PyBammBattery, charge_batteries,discharge_batteries
-from server import Server, Rack
+from server import *
 from wireless import gNB, UE
 from cooling import CoolSys
 
 class Controller:
     def __init__(self, generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
-                 battery_control_limit, battery_recover_signal, minimal_server_load_percentage, battery_type):
+                 battery_control_limit, battery_recover_signal, minimal_server_load_percentage, battery_type, server_max_power, server_idle_power):
         self.generator = generator
         self.ups_list = ups_list
         self.pdu_list = pdu_list
@@ -21,6 +21,8 @@ class Controller:
         self.battery_recover_signal = battery_recover_signal
         self.minimal_server_load_percentage = minimal_server_load_percentage
         self.received_power = 0
+        self.server_max_power = server_max_power
+        self.server_idle_power = server_idle_power
         self.power_dict = {
             100: 222,
             90: 205,
@@ -45,6 +47,8 @@ class Controller:
         battery_control_limit = background['battery_control_limit']
         battery_recover_signal = background['battery_recover_signal']
         battery_type = background['battery_type']
+        server_max_power = background['server_max_power']
+        server_idle_power = background['server_idle_power']
 
         def create_battery(battery_config):
             if battery_type == 1:
@@ -95,7 +99,7 @@ class Controller:
         for rack_config in config['NormalRacks']:
             rack = Rack(rack_config['rack_id'], rack_config['connected_pdu_id'], rack_config['priority'])
             for _ in range(rack_config['number_of_servers']):
-                server = Server(f"NS-{rack_config['rack_id']}-{_}")
+                server = Server(f"NS-{rack_config['rack_id']}-{_}",server_idle_power, server_max_power)
                 rack.add_server(server)
             normal_racks.append(rack)
 
@@ -103,7 +107,7 @@ class Controller:
         for rack_config in config['WirelessRacks']:
             rack = Rack(rack_config['rack_id'], rack_config['connected_pdu_id'], rack_config['priority'])
             for _ in range(rack_config['number_of_servers']):
-                server = Server(f"WS-{rack_config['rack_id']}-{_}")
+                server = Server(f"WS-{rack_config['rack_id']}-{_}", server_idle_power, server_max_power)
                 rack.add_server(server)
             wireless_racks.append(rack)
 
@@ -116,7 +120,7 @@ class Controller:
         minimal_server_load_percentage = 40  # Define minimal load percentage
 
         return cls(generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
-                   battery_control_limit, battery_recover_signal, minimal_server_load_percentage, battery_type)
+                   battery_control_limit, battery_recover_signal, minimal_server_load_percentage, battery_type, server_max_power, server_idle_power)
 
     def receive_power(self):
         self.received_power = self.generator.generate_power()
@@ -127,8 +131,7 @@ class Controller:
         for rack in self.normal_racks + self.wireless_racks:
             for server in rack.server_list:
                 # Round to nearest multiple of 10
-                target_load = round(server.load_percentage / 10) * 10
-                server_power_usage = self.power_dict[target_load]
+                server_power_usage = server.simulate_server_power_usage()
                 total_power_usage += server_power_usage
                 print(f"Server {server.server_id} power usage: {server_power_usage} W")
 
@@ -140,13 +143,13 @@ class Controller:
         """
         return 0.1 * server_power_usage
 
-    def trace_control(self, t):
-        if t < 100:  # First 5 minutes
-            return 30, 60
-        elif 100 <= t < 200:  # Next 15 minutes
-            return 90, 100
-        else:  # Back to 30%-60% load
-            return 30, 60
+    # def trace_control(self, t):
+    #     if t < 100:  # First 5 minutes
+    #         return 30, 60
+    #     elif 100 <= t < 200:  # Next 15 minutes
+    #         return 90, 100
+    #     else:  # Back to 30%-60% load
+    #         return 30, 60
 
     def get_ups_limit(self):
         for ups in self.ups_list:
@@ -198,6 +201,7 @@ class Controller:
 
     def start_simulation(self, duration=10):
         print(f"Initial Cooling System Power Usage: {self.cool_sys.cool_load} W")
+        google_cpu_usage_trace_csv = load_cpu_usage("data/total_usage.csv")
 
         with open('power_usage.csv', mode='w', newline='') as file:
             writer = csv.writer(file)
@@ -214,10 +218,11 @@ class Controller:
 
             for t in range(duration):
                 self.receive_power()
-                load_min, load_max = self.trace_control(t)
-                load_percentage = random.randint(load_min, load_max)
+                # load_min, load_max = self.trace_control(t)
+                # load_percentage = random.randint(load_min, load_max)
                 for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
                     for server in rack.server_list:
+                        load_percentage = server.simulate_google_cpu_util(google_cpu_usage_trace_csv, t)
                         server.load_percentage = load_percentage
 
                 # Set UPS 4 to offline at 1200 seconds
@@ -279,4 +284,4 @@ class Controller:
 
 if __name__ == "__main__":
     controller = Controller.from_config('config.json')
-    controller.start_simulation(duration=2600)
+    controller.start_simulation(duration=744)
