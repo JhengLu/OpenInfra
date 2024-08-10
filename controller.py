@@ -122,9 +122,9 @@ class Controller:
         return cls(generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
                    battery_control_limit, battery_recover_signal, minimal_server_load_percentage, battery_type, server_max_power, server_idle_power)
 
-    def receive_power(self):
-        self.received_power = self.generator.generate_power()
-        print(f"Controller received power: {self.received_power:.2f} units")
+    # def receive_power(self):
+    #     self.received_power = self.generator.generate_power()
+    #     print(f"Controller received power: {self.received_power:.2f} units")
 
     def simulate_server_power_usage(self):
         total_power_usage = 0
@@ -206,7 +206,7 @@ class Controller:
         with open('power_usage.csv', mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(
-                ['Time', 'Generated Power'] +
+                ['Time', 'Generated Power', 'Wind Power', 'Solar Power'] +
                 [f'UPS {ups.ups_id} Battery Charge Level' for ups in self.ups_list] +
                 [f'UPS {ups.ups_id} Status' for ups in self.ups_list] +
                 [f'UPS {ups.ups_id} Deliverable Power' for ups in self.ups_list] +
@@ -217,7 +217,7 @@ class Controller:
             )
 
             for t in range(duration):
-                self.receive_power()
+                self.received_power, wind_power, solar_power = self.generator.generate_power(t)
                 # load_min, load_max = self.trace_control(t)
                 # load_percentage = random.randint(load_min, load_max)
                 for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
@@ -272,7 +272,7 @@ class Controller:
 
                 # Save the current state to CSV
                 writer.writerow(
-                    [t, self.received_power] +
+                    [t, self.received_power, wind_power, solar_power] +
                     [ups.battery.charge_level for ups in self.ups_list] +
                     [ups.online for ups in self.ups_list] +
                     deliverable_ups_power +

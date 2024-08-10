@@ -14,13 +14,16 @@ def plot_power_usage(csv_file):
     # Create a figure with two rows and two columns of subplots
     fig, axs = plt.subplots(2, 2, figsize=(14, 10))
 
-    # Plot power usage in the first subplot
-    axs[0, 0].plot(data['Time'], data['Generated Power'], label='Generated Power', linestyle='-', linewidth=1)
+    # Plot power usage in the first subplot with stacked Wind and Solar Power
+    # axs[0, 0].plot(data['Time'], data['Generated Power'], label='Generated Power', linestyle='-', linewidth=1)
     axs[0, 0].plot(data['Time'], data['Total Power Usage'], label='Total Power Usage', linestyle='-', linewidth=1)
     axs[0, 0].plot(data['Time'], data['Server Power Usage'], label='Server Power Usage', linestyle='-', linewidth=1)
     axs[0, 0].plot(data['Time'], data['Cool Power Usage'], label='Cool Power Usage', linestyle='-', linewidth=1)
     axs[0, 0].plot(data['Time'], data['Other Power Usage'], label='Other Power Usage', linestyle='-', linewidth=1)
     axs[0, 0].plot(data['Time'], data['Total UPS Deliverable Power'], label='Total UPS Deliverable Power', linestyle='-', linewidth=2, color='k')
+
+    # Add stacked area plots for Wind and Solar Power
+    axs[0, 0].stackplot(data['Time'], data['Wind Power'], data['Solar Power'], labels=['Wind Power', 'Solar Power'], alpha=0.5)
 
     axs[0, 0].set_xlabel('Time (seconds)')
     axs[0, 0].set_ylabel('Power (W)')

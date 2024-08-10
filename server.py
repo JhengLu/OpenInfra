@@ -15,6 +15,7 @@ class Server:
         self.power_usage = power_dict[simulated_load]
         return self.power_usage
 
+# TODO add more trace patterns
     def simulate_google_cpu_util(self, cpu_usage_data, time_step):
         if time_step < len(cpu_usage_data):
             cpu_utilization = cpu_usage_data[time_step]

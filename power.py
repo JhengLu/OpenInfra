@@ -1,14 +1,80 @@
 import random
-
+import pandas as pd
 class PowerGenerator:
     def __init__(self, min_power=10, max_power=100):
         self.min_power = min_power
         self.max_power = max_power
         self.generated_power = 0
+        self.dc_ba_map = {
+        # "OR": "BPAT",
+        # "NC": "DUK",
+        "UT": "PACE",
+        }
+        # <dc_power_map>: map of average DC power capacity in MW
+        self.dc_power_map = {
+        "OR": 70,
+        "NC": 50,
+        "UT": 20,
+        }
+        # <ba_ppa_map>: map of renewable [wind, solar] investment amounts (in MW) you want to make for each grid (BA)
+        self.ba_ppa_map = {
+            "BPAT": [100, 0],  # 500 MW wind farm, no solar farm
+            "DUK": [0, 410],  # no wind farm, 410 MW solar farm
+            "PACE": [0.0239, 0.0694],  # 239 MW wind, 694 MW solar farm
+        }
+        self.location = "UT"
+        self.power_raw_trace_df = pd.read_csv(f"data/power_gen_{self.location}_with_hour_index.csv", index_col=0)
+        self.power_projected_trace_df = self.project_power_trace()
+        self.power_projected_trace_df.to_csv(f"data/power_projected_gen_{self.location}_with_hour_index.csv")
 
-    def generate_power(self):
-        self.generated_power = 35000
-        return self.generated_power
+
+
+
+    def generate_power(self, time_step):
+        return (self.power_projected_trace_df.loc[time_step, 'WND'] + self.power_projected_trace_df.loc[time_step, 'SUN']) * 1000000, self.power_projected_trace_df.loc[time_step, 'WND'] * 1000000, self.power_projected_trace_df.loc[time_step, 'SUN'] * 1000000 # translate MW to W
+
+
+    def project_power_trace(self):
+        # Simulate each datacenter in our map
+        for dc in self.dc_ba_map:
+            db = self.power_raw_trace_df
+            db[db < 0] = 0
+            wnd_db = db['WND'].fillna(0)
+            sun_db = db['SUN'].fillna(0)
+            max_wnd_cap = wnd_db.max()
+            max_sun_cap = sun_db.max()
+            SUN_PPA_MW = self.ba_ppa_map[self.dc_ba_map[dc]][1]
+            WND_PPA_MW = self.ba_ppa_map[self.dc_ba_map[dc]][0]
+            print("Renewable Investment Amount --  SUN: ", SUN_PPA_MW, "WND: ", WND_PPA_MW)
+            # Project the renewable generation amount from your ren. investments
+            # based on the maximum generation in the grid during the corresponding data range
+            if (max_wnd_cap != 0):
+                wnd_db = wnd_db / max_wnd_cap * WND_PPA_MW
+            if (max_sun_cap != 0):
+                sun_db = sun_db / max_sun_cap * SUN_PPA_MW
+            projected_db = pd.concat([wnd_db, sun_db], axis=1)
+            return projected_db
+
+
+
+    def loadDB(self, path):
+        dfa = pd.read_csv(path, index_col=0, parse_dates=True)
+        print(f"Data loaded from {path}")
+        return dfa
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 class Battery:
     def __init__(self, capacity, initial_soc=1, min_soc=0, charge_rate=100):
