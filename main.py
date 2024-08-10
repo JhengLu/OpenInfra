@@ -2,15 +2,20 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from controller import Controller
 
-def draw_structure(controller):
-    print("UPS to PDU Connections:")
-    for ups in controller.ups_list:
-        print(f"UPS {ups.ups_id} -> PDUs: {', '.join(map(str, ups.connected_pdu_list))}")
 
-    print("\nPDU to Device Connections:")
+def draw_structure(controller):
+    print("Data Center Structure")
+    print("======================")
+
     for pdu in controller.pdu_list:
+        ups_id = pdu.connected_ups_id
+        connected_device_type_str = ', '.join(pdu.connected_device_type)
+        connected_device_id_str = ', '.join(map(str, pdu.connected_device_id))
         print(
-            f"PDU {pdu.pdu_id} (UPS: {', '.join(map(str, pdu.connected_ups_id))}) -> Device Types: {', '.join(pdu.connected_device_type)}, Device IDs: {', '.join(map(str, pdu.connected_device_id))}")
+            f"PDU {pdu.pdu_id} (UPS: {ups_id}) -> Device Types: {connected_device_type_str}, Device IDs: {connected_device_id_str}")
+
+    print("======================")
+
 
 def draw_topology(controller):
     G = nx.DiGraph()
@@ -22,26 +27,31 @@ def draw_topology(controller):
     # Add PDU nodes and edges from UPS to PDU
     for pdu in controller.pdu_list:
         G.add_node(f"PDU {pdu.pdu_id}", type='PDU', layer=1)
-        for ups_id in pdu.connected_ups_id:
-            G.add_edge(f"UPS {ups_id}", f"PDU {pdu.pdu_id}")
+        G.add_edge(f"UPS {pdu.connected_ups_id}", f"PDU {pdu.pdu_id}")
 
-    # Add rack nodes and edges from PDU to rack
+    # Add grouped rack nodes and edges from PDU to rack group
+    rack_ranges = {}
     for pdu in controller.pdu_list:
-        for device_type, device_id in zip(pdu.connected_device_type, pdu.connected_device_id):
-            if device_type == "normal_rack":
-                rack_label = f"NormalRack {device_id}"
-            elif device_type == "wireless_rack":
-                rack_label = f"WirelessRack {device_id}"
-            G.add_node(rack_label, type=device_type, layer=2)
-            G.add_edge(f"PDU {pdu.pdu_id}", rack_label)
+        if pdu.connected_device_type and pdu.connected_device_id:
+            min_rack_id = min(pdu.connected_device_id)
+            max_rack_id = max(pdu.connected_device_id)
+            rack_range = f"Racks {min_rack_id}-{max_rack_id}"
+            rack_ranges[(min_rack_id, max_rack_id)] = rack_range
+            G.add_node(rack_range, type='rack_group', layer=2)
+            G.add_edge(f"PDU {pdu.pdu_id}", rack_range)
 
-    # Add gNB nodes and edges from wireless rack to gNB
+    # Add gNB nodes and edges from wireless rack group to gNB
     for gnb in controller.gnb_list:
         gnb_label = f"gNB {gnb.gNB_id}"
         G.add_node(gnb_label, type='gNB', layer=3)
-        for rack in controller.wireless_racks:
-            if rack.rack_id == gnb.connected_rack_id:
-                G.add_edge(f"WirelessRack {rack.rack_id}", gnb_label)
+
+        # Find the rack range to which this gNB is connected
+        for (min_rack_id, max_rack_id), rack_range in rack_ranges.items():
+            if min_rack_id <= gnb.connected_rack_id <= max_rack_id:
+                G.add_edge(rack_range, gnb_label)
+                break
+        else:
+            raise ValueError(f"No rack range found for gNB {gnb.gNB_id} connected to rack {gnb.connected_rack_id}")
 
         # Add UE nodes and edges from gNB to UE
         for ue_id in gnb.connected_ue_list:
@@ -49,21 +59,13 @@ def draw_topology(controller):
             G.add_node(ue_label, type='UE', layer=4)
             G.add_edge(gnb_label, ue_label)
 
+    # Check if all nodes have the 'layer' attribute
+    for node, data in G.nodes(data=True):
+        if 'layer' not in data:
+            raise ValueError(f"Node {node} does not have the 'layer' attribute.")
+
     # Define a layout for hierarchical structure
     pos = nx.multipartite_layout(G, subset_key="layer")
-
-    # Sort the nodes by their numeric identifier within each layer
-    layer_nodes = {layer: [] for layer in set(nx.get_node_attributes(G, 'layer').values())}
-    for node, data in G.nodes(data=True):
-        layer_nodes[data['layer']].append(node)
-
-    for layer in layer_nodes:
-        layer_nodes[layer].sort(key=lambda x: int(x.split()[-1]))
-
-    # Assign positions from left to right for each layer
-    for layer, nodes in layer_nodes.items():
-        for i, node in enumerate(nodes):
-            pos[node] = (i, -layer)
 
     # Draw the graph
     plt.figure(figsize=(14, 12))
@@ -73,10 +75,8 @@ def draw_topology(controller):
                            node_size=3000)
     nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'PDU'],
                            node_color='lightgreen', node_size=3000)
-    nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'normal_rack'], node_color='orange',
-                           node_size=3000)
-    nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'wireless_rack'], node_color='purple',
-                           node_size=3000)
+    nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'rack_group'],
+                           node_color='orange', node_size=3000)
     nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'gNB'], node_color='red',
                            node_size=3000)
     nx.draw_networkx_nodes(G, pos, nodelist=[n for n in G.nodes if G.nodes[n]['type'] == 'UE'], node_color='blue',
@@ -84,13 +84,20 @@ def draw_topology(controller):
 
     plt.title("Datacenter Topology")
     plt.savefig('topology.png')
-    # plt.show()
+    plt.show()
+
+
+
+
+
+
 
 def main():
-    controller = Controller.from_config('config.json')
+    controller = Controller.from_config('simple_config.json')
     draw_structure(controller)
     draw_topology(controller)
-    controller.start_simulation(duration=744)
+    controller.start_simulation(duration=244)  # max is 744
+
 
 if __name__ == "__main__":
     main()

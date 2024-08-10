@@ -20,7 +20,7 @@ class PowerGenerator:
         self.ba_ppa_map = {
             "BPAT": [100, 0],  # 500 MW wind farm, no solar farm
             "DUK": [0, 410],  # no wind farm, 410 MW solar farm
-            "PACE": [0.0239, 0.0694],  # 239 MW wind, 694 MW solar farm
+            "PACE": [2.39, 6.94],  # 239 MW wind, 694 MW solar farm
         }
         self.location = "UT"
         self.power_raw_trace_df = pd.read_csv(f"data/power_gen_{self.location}_with_hour_index.csv", index_col=0)
