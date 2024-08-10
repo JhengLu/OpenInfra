@@ -17,7 +17,10 @@ class Chiller:
         self.water_density = 997
         self.safe_temperature = 23 # in celsius
         self.number_of_servers = number_of_servers
-    def simulate_chiller_power_usage(self, server_temperature):
-        temp_diff = server_temperature - self.safe_temperature
-        return (self.number_of_servers * self.flow_rate * self.water_density * self.water_specific_heat_capacity * temp_diff) / self.COP
+    def simulate_chiller_power_usage(self, server_temperature, energy_grid_temperature):
+        server_temp_diff = server_temperature - self.safe_temperature
+        energy_grid_temp_diff = energy_grid_temperature - self.safe_temperature
+        datacenter_cooling_energy = (self.number_of_servers * self.flow_rate * self.water_density * self.water_specific_heat_capacity * server_temp_diff) / self.COP
+        energy_grid_cooling_energy = (self.flow_rate * self.water_density * self.water_specific_heat_capacity * energy_grid_temp_diff) / self.COP
+        return datacenter_cooling_energy + energy_grid_cooling_energy
 
