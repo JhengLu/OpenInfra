@@ -17,6 +17,7 @@ class Chiller:
         self.water_density = 997
         self.safe_temperature = 23 # in celsius
         self.number_of_servers = number_of_servers
+    
     def simulate_chiller_power_usage(self, server_temperature, energy_grid_temperature):
         server_temp_diff = server_temperature - self.safe_temperature
         energy_grid_temp_diff = energy_grid_temperature - self.safe_temperature
@@ -24,3 +25,13 @@ class Chiller:
         energy_grid_cooling_energy = (self.flow_rate * self.water_density * self.water_specific_heat_capacity * energy_grid_temp_diff) / self.COP
         return datacenter_cooling_energy + energy_grid_cooling_energy
 
+class Pump:
+    def __init__(self, pressure_head, pump_efficiency) -> None:
+        self.pressure_head = pressure_head
+        self.gravity = 9.81
+        self.fluid_density = 0.9998395
+        self.flow_rate = 34
+        self.pump_efficiency = pump_efficiency
+
+    def simulate_pump_power_usage(self, number_of_chillers):
+        return (number_of_chillers * self.gravity * self.flow_rate * self.fluid_density * self.pressure_head) / self.pump_efficiency
