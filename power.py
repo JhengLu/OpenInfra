@@ -20,7 +20,9 @@ class PowerGenerator:
         self.ba_ppa_map = {
             "BPAT": [100, 0],  # 500 MW wind farm, no solar farm
             "DUK": [0, 410],  # no wind farm, 410 MW solar farm
-            "PACE": [2.39, 6.94],  # 239 MW wind, 694 MW solar farm
+            # "PACE": [2.39, 6.94],  # 239 MW wind, 694 MW solar farm
+            # "PACE": [0, 6.94],
+            "PACE": [6.39,0],
         }
         self.location = "UT"
         self.power_raw_trace_df = pd.read_csv(f"data/power_gen_{self.location}_with_hour_index.csv", index_col=0)
@@ -125,55 +127,87 @@ class Battery:
 
 import pybamm
 
+
 class PyBammBattery(Battery):
     def __init__(self, capacity, initial_soc=1, min_soc=0, charge_rate=100):
         super().__init__(capacity, initial_soc, min_soc, charge_rate)
-        self.nominal_voltage = 120  # Nominal voltage in V
-        self.capacity_wh = capacity / 3600  # Convert capacity from W.s to W.h
-        self.capacity_ah = self.capacity_wh / self.nominal_voltage  # Convert capacity from W.h to A.h
+        self.capacity_ah = capacity
         self.model = pybamm.lithium_ion.DFN()
         self.model.options["calculate discharge energy"] = "true"
         parameter_values = self.model.default_parameter_values
         parameter_values.update({"Nominal cell capacity [A.h]": self.capacity_ah})
+        # usually the nominal cell capacity is like 5.0 A.h
+        parameter_values.update({
+            "Nominal cell capacity [A.h]": self.capacity_ah,
+            "Lower voltage cut-off [V]": 0,
+            "Upper voltage cut-off [V]": 10
+        })
+        print("nominal capacity is: " + str(self.capacity_ah))
         self.simulation = pybamm.Simulation(self.model, parameter_values=parameter_values)
-        self.simulation.set_initial_soc(initial_soc)
-        self.simulation.solve([0, 1])  # Initialize the simulation
+        self.solution = self.simulation.solve(t_eval=[0, 1])  # Initial solve with a short time interval
+        self.min_soc = min_soc
+        self.current_soc = initial_soc
 
-        # Print all available variables
-        print("Available variables in the model:")
-        for var in self.simulation.model.variables.keys():
-            print(var)
+    def discharge(self, power_amount, duration_hours):
+        """
+        Discharge the battery with a given power for a specific duration.
 
-    def discharge(self, power_amount, time_step):
-        energy_amount_wh = power_amount * time_step / 3600  # Convert energy from W.s to W.h
-        current_soc = self.simulation.solution["Discharge energy [W.h]"].data[-1] / self.capacity_wh
-        if current_soc - energy_amount_wh / self.capacity_ah < self.min_soc:
-            energy_amount_wh = abs((current_soc - self.min_soc) * self.capacity_ah )  # Limit discharge to minimum SOC
+        Args:
+            power_amount (float): Power in Watts.
+            duration (float): Duration in hours.
+        """
+        # Convert duration to hours for the experiment string
 
-        # Calculate the current needed to discharge the given energy
-        current_a = energy_amount_wh / time_step / self.nominal_voltage
+        # Define the experiment string using the power amount and duration
+        experiment_string = f"Discharge at {power_amount} W for {duration_hours} hours"
 
-        self.simulation.model.variables["Current [A]"] = -current_a  # Set discharge current (negative)
-        self.simulation.step(dt=time_step)
-        self.charge_level -= energy_amount_wh * 3600  # Update the charge level in W.s
-        return energy_amount_wh * 3600  # Return the energy discharged in W.s
+        # Create an experiment with the string
+        experiment = pybamm.Experiment([experiment_string])
 
-    def charge(self, power_amount, time_step):
-        energy_amount_wh = power_amount * time_step / 3600  # Convert energy from W.s to W.h
-        current_soc = self.simulation.solution["Discharge energy [W.h]"].data[-1] / self.capacity_wh
-        if current_soc + energy_amount_wh / self.capacity_ah > 1:
-            energy_amount_wh = (1 - current_soc) * self.capacity_ah  # Limit charge to full SOC
+        # Run the simulation with the experiment, using the previous solution as the initial state
+        self.simulation = pybamm.Simulation(self.model, experiment=experiment,
+                                            parameter_values=self.simulation.parameter_values)
+        self.solution = self.simulation.solve(initial_soc=self.current_soc)
 
-        # Calculate the current needed to charge the given energy
-        current_a = energy_amount_wh / time_step / self.nominal_voltage
+        # Extract discharge energy and capacity
+        discharge_capacity = self.solution["Discharge capacity [A.h]"].data[-1]
+        print(f"Discharge capacity: {discharge_capacity:.2f} A.h")
+        # Update SOC and charge level
+        self.current_soc -= discharge_capacity / self.capacity_ah
+        self.current_soc = max(self.current_soc, self.min_soc)
+        print(f"current_soc: {self.current_soc} ")
 
-        self.simulation.model.variables["Current [A]"] = current_a  # Set charge current (positive)
-        self.simulation.step(dt=time_step)
-        self.charge_level += energy_amount_wh * 3600  # Update the charge level in W.s
-        if self.charge_level > self.capacity:
-            self.charge_level = self.capacity
+        return self.solution
 
-        return energy_amount_wh * 3600  # Return the energy charged in W.s
+    def charge(self, power_amount, duration_hours):
+        """
+        Charge the battery with a given power for a specific duration.
+
+        Args:
+            power_amount (float): Power in Watts.
+            duration (float): Duration in seconds.
+        """
+
+        # Define the experiment string using the power amount and duration
+        experiment_string = f"Charge at {power_amount} W for {duration_hours} hours"  # Negative power for charging
+
+        # Create an experiment with the string
+        experiment = pybamm.Experiment([experiment_string])
+
+        # Run the simulation with the experiment, using the previous solution as the initial state
+        self.simulation = pybamm.Simulation(self.model, experiment=experiment,
+                                            parameter_values=self.simulation.parameter_values)
+        self.solution = self.simulation.solve(initial_soc=self.current_soc)
+
+        # Extract charge energy and capacity
+        charge_capacity = (-1) * self.solution["Discharge capacity [A.h]"].data[-1]
+        print(f"Charge capacity: {charge_capacity:.2f} A.h")
+
+        self.current_soc += charge_capacity / self.capacity_ah
+        self.current_soc = min(1, self.current_soc)
+        print(f"current_soc: {self.current_soc} ")
+
+        return self.solution
 
 # Modify the existing functions to use the new class
 def discharge_batteries(ups_list, deficit_power, time_step):

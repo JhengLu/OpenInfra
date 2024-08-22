@@ -1,0 +1,78 @@
+{
+  "background": {
+    "attribute_paramater": 500000
+
+  },
+  "UPS": [
+    {
+      "ups_id": 1,
+      "online": true,
+      "ups_init_power_limit": "4/5",
+      "ups_power_deliver_capacity": 500000,
+      "ups_battery": {
+        "capacity": 3600000,
+        "initial_soc": 1,
+        "min_soc": 0.2,
+        "charge_rate": 100
+      }
+    },
+    {
+      "ups_id": 2,
+      "online": true,
+      "ups_init_power_limit": "4/5",
+      "ups_power_deliver_capacity": 500000,
+      "ups_battery": {
+        "capacity": 3600000,
+        "initial_soc": 1,
+        "min_soc": 0.2,
+        "charge_rate": 100
+      }
+    },{
+      "ups_id": 3,
+      "online": true,
+      "ups_init_power_limit": "4/5",
+      "ups_power_deliver_capacity": 500000,
+      "ups_battery": {
+        "capacity": 3600000,
+        "initial_soc": 1,
+        "min_soc": 0.2,
+        "charge_rate": 100
+      }
+    }
+
+  ],
+  "PDU": [
+    {
+      "id": 1,
+      "connected_rack_id": [1],
+      "connected_ups_id": 1
+    },
+    {
+      "id": 2,
+      "connected_rack_id": [1],
+      "connected_ups_id": 2
+    },
+    {
+      "id": 3,
+      "connected_rack_id": [2],
+      "connected_ups_id": 1
+    },
+    {
+      "id": 4,
+      "connected_rack_id": [2],
+      "connected_ups_id": 3
+    }
+  ],
+  "Racks": [
+    {
+      "rack_id": 1,
+      "priority": 1,
+      "number_of_servers": 52
+    },
+    {
+      "rack_id": 2,
+      "priority": 2,
+      "number_of_servers": 40
+    }
+  ]
+}
