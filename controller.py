@@ -138,7 +138,7 @@ class Controller:
         total_power_usage = 0
         for rack in self.normal_racks + self.wireless_racks:
             for server in rack.server_list:
-                server_power_usage = server.simulate_server_power_usage()
+                server_power_usage = server.simulate_power()
                 total_power_usage += server_power_usage
                 print(f"Server {server.server_id} power usage: {server_power_usage} W")
         return total_power_usage
@@ -200,6 +200,7 @@ class Controller:
 
             for t in tqdm(range(duration)):
                 self.received_power, wind_power, solar_power = self.generator.generate_power(t)
+                # simulate the server load
                 for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
                     for server in rack.server_list:
                         load_percentage = server.simulate_google_cpu_util(google_cpu_usage_trace_csv, t)

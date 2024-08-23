@@ -25,7 +25,7 @@ class Server:
 
 
 
-    def simulate_server_power_usage(self):
+    def simulate_power(self):
         self.power_usage = self.p_idle + (self.p_max - self.p_idle) * self.load_percentage
         return self.power_usage
 
