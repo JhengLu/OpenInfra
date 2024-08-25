@@ -20,9 +20,9 @@ class PowerGenerator:
         self.ba_ppa_map = {
             "BPAT": [100, 0],  # 500 MW wind farm, no solar farm
             "DUK": [0, 410],  # no wind farm, 410 MW solar farm
-            # "PACE": [2.39, 6.94],  # 239 MW wind, 694 MW solar farm
+            "PACE": [1.5, 1.6],  # 239 MW wind, 694 MW solar farm
             # "PACE": [0, 6.94],
-            "PACE": [6.39,0],
+            # "PACE": [3.39, 1.94],
         }
         self.location = "UT"
         self.power_raw_trace_df = pd.read_csv(f"data/power_gen_{self.location}_with_hour_index.csv", index_col=0)
@@ -103,6 +103,9 @@ class Battery:
         if self.charge_level > self.capacity:
             self.charge_level = self.capacity
         return power_amount * time_step
+
+    def max_power_support(self, time_step):
+        return (self.charge_level - self.capacity * self.min_soc) / time_step
 
     # @staticmethod
     # def discharge_batteries(ups_list, deficit_power, time_step):
@@ -227,6 +230,16 @@ def charge_batteries(ups_list, surplus_power, time_step):
             charge_amount = surplus_power / len(ups_list)
             actual_charge = battery.charge(charge_amount, time_step)
             print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
+
+def get_batteries_max_power_support(ups_list, time_step):
+    # print(f"Total power surplus: {surplus_power:.2f} units")
+    batteries_max_power_support = 0
+    for ups in ups_list:
+        if ups.online:
+            battery = ups.battery
+            batteries_max_power_support += battery.max_power_support(time_step)
+
+    return batteries_max_power_support
 
 
 

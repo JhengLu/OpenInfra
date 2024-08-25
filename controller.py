@@ -1,7 +1,7 @@
 import json
 import csv
 import random
-from power import PowerGenerator, UPS, PDU, Battery, Battery2, PyBammBattery, charge_batteries, discharge_batteries
+from power import PowerGenerator, UPS, PDU, Battery, Battery2, PyBammBattery, charge_batteries, discharge_batteries, get_batteries_max_power_support
 from server import *
 from wireless import gNB, UE
 from cooling import CoolSys
@@ -24,6 +24,7 @@ class Controller:
         self.server_max_power = server_max_power
         self.server_idle_power = server_idle_power
         self.received_power = 0
+        self.time_step = 1
 
     @classmethod
     def from_config(cls, config_path):
@@ -134,7 +135,7 @@ class Controller:
         return cls(generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
                    minimal_server_load_percentage, server_max_power, server_idle_power, battery_control_limit, battery_recover_signal)
 
-    def simulate_server_power_usage(self):
+    def get_server_power_usage_from_load(self):
         total_power_usage = 0
         for rack in self.normal_racks + self.wireless_racks:
             for server in rack.server_list:
@@ -156,31 +157,145 @@ class Controller:
             if ups.online:
                 ups.power_limit = min(0.1 + ups.power_limit, 1)
 
+    # def control_rack_loads(self):
+    #     for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
+    #         for server in rack.server_list:
+    #             if server.load_percentage > rack.max_power_load_percentage:
+    #                 server.load_percentage = rack.max_power_load_percentage
+    #
+    #     total_battery_soc = sum(ups.battery.soc for ups in self.ups_list if ups.online) / len(
+    #         [ups for ups in self.ups_list if ups.online])
+    #
+    #     if total_battery_soc < self.battery_control_limit:
+    #         if self.get_ups_limit() == 1:
+    #             for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
+    #                 if rack.max_power_load_percentage > self.minimal_server_load_percentage:
+    #                     rack.max_power_load_percentage -= 10
+    #                     print(f"Reducing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
+    #                     return
+    #         else:
+    #             self.increase_ups_limit()
+    #
+    #     elif total_battery_soc > self.battery_recover_signal:
+    #         for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority, reverse=True):
+    #             if rack.max_power_load_percentage < 100:
+    #                 rack.max_power_load_percentage += 10
+    #                 print(f"Increasing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
+    #                 return
+
+    def pick_lowest_prio_rack(self):
+        for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
+            if rack.max_power_load_percentage > 0:
+                return rack
+        print("all racks are 0")
+
+    def pick_highest_prio_power(self):
+        for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority, reverse=True):
+            if rack.max_power_load_percentage < 100:
+                return rack
+
     def control_rack_loads(self):
+        # this is for the last time's control
         for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
             for server in rack.server_list:
                 if server.load_percentage > rack.max_power_load_percentage:
                     server.load_percentage = rack.max_power_load_percentage
 
-        total_battery_soc = sum(ups.battery.soc for ups in self.ups_list if ups.online) / len(
-            [ups for ups in self.ups_list if ups.online])
+        total_power_usage = self.get_total_power_usage()
+        max_avail_power = self.get_max_avail_power()
 
-        if total_battery_soc < self.battery_control_limit:
-            if self.get_ups_limit() == 1:
-                for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
-                    if rack.max_power_load_percentage > self.minimal_server_load_percentage:
-                        rack.max_power_load_percentage -= 10
-                        print(f"Reducing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
-                        return
-            else:
+        current_ups_limit = self.get_ups_limit()
+
+        '''control for avail power < used power'''
+        if (max_avail_power < total_power_usage):
+            # start from the low priority
+            while(max_avail_power < total_power_usage and self.get_ups_limit() < 1):
                 self.increase_ups_limit()
+                max_avail_power = self.get_max_avail_power()
 
-        elif total_battery_soc > self.battery_recover_signal:
-            for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority, reverse=True):
-                if rack.max_power_load_percentage < 100:
-                    rack.max_power_load_percentage += 10
-                    print(f"Increasing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
-                    return
+            max_avail_power = self.get_max_avail_power()
+            while max_avail_power < total_power_usage:
+                rack = self.pick_lowest_prio_rack()
+                if (rack == None):
+                    self.get_total_power_usage()
+                    break # assume we use the non-renewable power
+                rack.max_power_load_percentage = max(0, rack.max_power_load_percentage - 10)
+
+                for server in rack.server_list:
+                    if server.load_percentage > rack.max_power_load_percentage:
+                        server.load_percentage = rack.max_power_load_percentage
+
+                if (rack.rack_id == 176):
+                    print("this is the final one")
+                total_power_usage = self.get_total_power_usage()
+        # control for avail power >= used power
+        else:
+            total_rack_number = len(self.normal_racks + self.wireless_racks)
+            updated_number = 0
+            while updated_number < total_rack_number/3:
+                rack = self.pick_highest_prio_power()
+                if (rack != None):
+                    rack.max_power_load_percentage = min(100, rack.max_power_load_percentage + 10)
+                    updated_number = updated_number + 1
+                else:
+                    break
+
+
+
+
+
+        # this is for this time's double check
+        for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
+            for server in rack.server_list:
+                if server.load_percentage > rack.max_power_load_percentage:
+                    server.load_percentage = rack.max_power_load_percentage
+
+        return
+
+
+
+
+
+        # total_battery_soc = sum(ups.battery.soc for ups in self.ups_list if ups.online) / len(
+        #     [ups for ups in self.ups_list if ups.online])
+        #
+        #
+        # if total_battery_soc < self.battery_control_limit:
+        #     if self.get_ups_limit() == 1:
+        #         for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
+        #             if rack.max_power_load_percentage > self.minimal_server_load_percentage:
+        #                 rack.max_power_load_percentage -= 10
+        #                 print(
+        #                     f"Reducing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
+        #                 return
+        #     else:
+        #         self.increase_ups_limit()
+        #
+        # elif total_battery_soc > self.battery_recover_signal:
+        #     # start from the high priority
+        #     for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority, reverse=True):
+        #         if rack.max_power_load_percentage < 100:
+        #             rack.max_power_load_percentage += 10
+        #             print(f"Increasing max load limit for rack {rack.rack_id} to {rack.max_power_load_percentage}%")
+        #             return
+
+    def get_max_avail_power(self):
+        total_online_ups_power = sum(
+            ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
+        print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
+
+        max_battery_support_power = get_batteries_max_power_support(self.ups_list, self.time_step)
+        max_outside_power = min(total_online_ups_power, self.received_power)
+        max_avail_power = max_battery_support_power + max_outside_power
+        return max_avail_power
+
+    def get_total_power_usage(self):
+        server_power_usage = self.get_server_power_usage_from_load()
+        cool_power_usage = self.cool_sys.simulate_coolsys_power_usage(server_power_usage)
+        other_power_usage = self.simulate_trivial_power_usage(server_power_usage)
+
+        total_power_usage = server_power_usage + cool_power_usage + other_power_usage
+        return total_power_usage
 
     def start_simulation(self, duration=10):
         print(f"Initial Cooling System Power Usage: {self.cool_sys.cool_load} W")
@@ -198,34 +313,49 @@ class Controller:
                 ['Battery Control Limit', 'Battery Recover Signal']
             )
 
+            time_step = self.time_step
+
             for t in tqdm(range(duration)):
                 self.received_power, wind_power, solar_power = self.generator.generate_power(t)
+
+                # create a failure event from the power plant side
+                if 30 <= t <= 50:
+                    solar_power = 0
+                elif 60 <= t <= 70:
+                    wind_power = 0
+                self.received_power = wind_power + solar_power
+
                 # simulate the server load
                 for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
                     for server in rack.server_list:
                         load_percentage = server.simulate_google_cpu_util(google_cpu_usage_trace_csv, t)
                         server.load_percentage = load_percentage
 
+                # check the maximum usable power based on the power plant and battery：min(ups_deliverable + battery_max_support)
+                # and control the power to be smaller than the usable power
+
                 self.control_rack_loads()
-                server_power_usage = self.simulate_server_power_usage()
+                server_power_usage = self.get_server_power_usage_from_load()
                 cool_power_usage = self.cool_sys.simulate_coolsys_power_usage(server_power_usage)
                 other_power_usage = self.simulate_trivial_power_usage(server_power_usage)
 
                 total_power_usage = server_power_usage + cool_power_usage + other_power_usage
                 print(f"Total Power Usage: {total_power_usage:.2f} W")
 
-                online_ups_power = sum(
+                total_online_ups_power = sum(
                     ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
-                print(f"Total UPS capacity limit: {online_ups_power:.2f} W")
+                print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
 
                 deliverable_ups_power = [
                     ups.power_capacity * ups.power_limit if ups.online else 0 for ups in self.ups_list
                 ]
 
-                time_step = 1
-                if total_power_usage > self.received_power or server_power_usage > online_ups_power:
+
+
+
+                if total_power_usage > self.received_power or server_power_usage > total_online_ups_power:
                     deficit_power = max(total_power_usage - self.received_power,
-                                        server_power_usage - online_ups_power)
+                                        server_power_usage - total_online_ups_power)
                     discharge_batteries(self.ups_list, deficit_power, time_step)
                 else:
                     surplus_power = self.received_power - total_power_usage
@@ -236,7 +366,7 @@ class Controller:
                     [ups.battery.charge_level for ups in self.ups_list] +
                     [ups.online for ups in self.ups_list] +
                     deliverable_ups_power +
-                    [total_power_usage, server_power_usage, cool_power_usage, other_power_usage, online_ups_power] +
+                    [total_power_usage, server_power_usage, cool_power_usage, other_power_usage, total_online_ups_power] +
                     [rack.max_power_load_percentage for rack in self.normal_racks] +
                     [self.battery_control_limit * self.ups_list[0].battery.capacity] +
                     [self.battery_recover_signal * self.ups_list[0].battery.capacity]
@@ -245,4 +375,4 @@ class Controller:
 
 if __name__ == "__main__":
     controller = Controller.from_config('simple_config.json')
-    controller.start_simulation(duration=744)
+    controller.start_simulation(duration=100)
