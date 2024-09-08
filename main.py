@@ -96,7 +96,7 @@ def main():
     controller = Controller.from_config('simple_config.json')
     draw_structure(controller)
     draw_topology(controller)
-    controller.start_simulation(duration=100)  # max is 744
+    controller.start_simulation(duration=101)  # max is 744
 
 
 if __name__ == "__main__":

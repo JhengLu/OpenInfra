@@ -1,4 +1,4 @@
-# OpenDatacenter
+# OpenInfra
 
 ## Features
 - Specify online or offline status of UPS

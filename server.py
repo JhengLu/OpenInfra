@@ -18,15 +18,15 @@ class Server:
 # TODO add more trace patterns
     def simulate_google_cpu_util(self, cpu_usage_data, time_step):
         if time_step < len(cpu_usage_data):
-            cpu_utilization = cpu_usage_data[time_step]
-            return cpu_utilization
+            cpu_utilization_percentage = cpu_usage_data[time_step] * 100
+            return cpu_utilization_percentage
         else:
             return 0
 
 
 
     def simulate_power(self):
-        self.power_usage = self.p_idle + (self.p_max - self.p_idle) * self.load_percentage
+        self.power_usage = self.p_idle + (self.p_max - self.p_idle) * (self.load_percentage / 100)
         return self.power_usage
 
 def load_cpu_usage(csv_file):
@@ -45,6 +45,7 @@ class Rack:
         self.priority = priority
         self.server_list = []
         self.max_power_load_percentage = 100
+        self.min_power_load_percentage = 10
 
     def add_server(self, server):
         self.server_list.append(server)

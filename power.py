@@ -1,6 +1,62 @@
 import random
 import pandas as pd
+
 class PowerGenerator:
+    def __init__(self, min_power=10, max_power=100):
+        self.min_power = min_power
+        self.max_power = max_power
+        self.generated_power = 0
+        self.location = "cal"
+        self.time_zone = "pacific-time"
+        self.power_raw_trace_df = pd.read_csv(f"data/{self.location}-{self.time_zone}.csv", index_col=0)
+        self.power_projected_trace_df = self.project_power_trace()
+        self.power_projected_trace_df.to_csv(f"data/{self.location}-{self.time_zone}-processed.csv")
+
+
+
+
+    def generate_power(self, time_step):
+        return (self.power_projected_trace_df.loc[time_step, 'WND'] + self.power_projected_trace_df.loc[time_step, 'SUN']) * 1000000, self.power_projected_trace_df.loc[time_step, 'WND'] * 1000000, self.power_projected_trace_df.loc[time_step, 'SUN'] * 1000000 # translate MW to W
+
+
+    def project_power_trace(self):
+        # Define the investment values (these should be defined according to your context)
+        WND_PPA_MW = 3  # Example investment value for wind, replace with actual value
+        SUN_PPA_MW = 1.9  # Example investment value for solar, replace with actual value
+
+        # Load the data from a CSV file
+        filename = "data/cal-pacific-time"
+        data = pd.read_csv(filename + ".csv")
+
+        # Convert negative values to zero
+        data['Wind Generation (MWh)'] = data['Wind Generation (MWh)'].clip(lower=0)
+        data['Solar Generation (MWh)'] = data['Solar Generation (MWh)'].clip(lower=0)
+
+        # Calculate the maximum capacities
+        max_wnd_cap = data['Wind Generation (MWh)'].max()
+        max_sun_cap = data['Solar Generation (MWh)'].max()
+
+        # Normalize the wind and solar generation based on the investments and maximum capacities
+        data['WND'] = data['Wind Generation (MWh)'] / max_wnd_cap * WND_PPA_MW
+        data['SUN'] = data['Solar Generation (MWh)'] / max_sun_cap * SUN_PPA_MW
+
+        # Create the hour index
+        data['hour_index'] = range(len(data))
+
+        # Select only the required columns
+        result = data[['hour_index', 'WND', 'SUN']]
+
+        return result
+
+
+
+    def loadDB(self, path):
+        dfa = pd.read_csv(path, index_col=0, parse_dates=True)
+        print(f"Data loaded from {path}")
+        return dfa
+
+
+class PowerGenerator_carbon_explorer:
     def __init__(self, min_power=10, max_power=100):
         self.min_power = min_power
         self.max_power = max_power
@@ -93,10 +149,12 @@ class Battery:
         return self.charge_level / self.capacity
 
     def discharge(self, power_amount, time_step):
+        old_charge_level = self.charge_level
         self.charge_level -= power_amount * time_step
         if self.charge_level < self.min_soc * self.capacity:
             self.charge_level = self.min_soc * self.capacity
-        return power_amount * time_step
+        discharged_energy = old_charge_level - self.charge_level
+        return discharged_energy
 
     def charge(self, power_amount, time_step):
         self.charge_level += power_amount * time_step
@@ -107,25 +165,7 @@ class Battery:
     def max_power_support(self, time_step):
         return (self.charge_level - self.capacity * self.min_soc) / time_step
 
-    # @staticmethod
-    # def discharge_batteries(ups_list, deficit_power, time_step):
-    #     print(f"Total power deficit: {deficit_power:.2f} units")
-    #     for ups in ups_list:
-    #         if ups.online:
-    #             battery = ups.battery
-    #             discharge_power_amount = deficit_power / len(ups_list)
-    #             actual_discharge = battery.discharge(discharge_power_amount, time_step)
-    #             print(f"UPS {ups.ups_id} battery discharged by {actual_discharge:.2f} units")
-    #
-    # @staticmethod
-    # def charge_batteries(ups_list, surplus_power, time_step):
-    #     print(f"Total power surplus: {surplus_power:.2f} units")
-    #     for ups in ups_list:
-    #         if ups.online:
-    #             battery = ups.battery
-    #             charge_power_amount = surplus_power / len(ups_list)
-    #             actual_charge = battery.charge(charge_power_amount, time_step)
-    #             print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
+
 
 
 import pybamm
@@ -213,23 +253,7 @@ class PyBammBattery(Battery):
         return self.solution
 
 # Modify the existing functions to use the new class
-def discharge_batteries(ups_list, deficit_power, time_step):
-    print(f"Total power deficit: {deficit_power:.2f} units")
-    for ups in ups_list:
-        if ups.online:
-            battery = ups.battery
-            discharge_amount = deficit_power / len(ups_list)
-            actual_discharge = battery.discharge(discharge_amount, time_step)
-            print(f"UPS {ups.ups_id} battery discharged by {actual_discharge:.2f} units")
 
-def charge_batteries(ups_list, surplus_power, time_step):
-    print(f"Total power surplus: {surplus_power:.2f} units")
-    for ups in ups_list:
-        if ups.online:
-            battery = ups.battery
-            charge_amount = surplus_power / len(ups_list)
-            actual_charge = battery.charge(charge_amount, time_step)
-            print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
 
 def get_batteries_max_power_support(ups_list, time_step):
     # print(f"Total power surplus: {surplus_power:.2f} units")
@@ -249,12 +273,16 @@ def get_batteries_max_power_support(ups_list, time_step):
 # Modify the existing functions to use the new class
 def discharge_batteries(ups_list, deficit_power, time_step):
     print(f"Total power deficit: {deficit_power:.2f} units")
+    total_discharged_energy = 0
     for ups in ups_list:
         if ups.online:
             battery = ups.battery
             discharge_amount = deficit_power / len(ups_list)
-            actual_discharge = battery.discharge(discharge_amount, time_step)
-            print(f"UPS {ups.ups_id} battery discharged by {actual_discharge:.2f} units")
+            actual_discharge_energy = battery.discharge(discharge_amount, time_step)
+            total_discharged_energy += actual_discharge_energy
+            # print(f"UPS {ups.ups_id} battery discharged by {actual_discharge_energy:.2f} units")
+
+    return total_discharged_energy
 
 def charge_batteries(ups_list, surplus_power, time_step):
     print(f"Total power surplus: {surplus_power:.2f} units")
@@ -345,25 +373,6 @@ class Battery2:
 
 
 
-def discharge_batteries(ups_list, deficit_power, time_step):
-    print(f"Battery 2, Total power deficit: {deficit_power:.2f} units")
-    for ups in ups_list:
-        if ups.online:
-            battery = ups.battery
-            discharge_power_amount = deficit_power / len(ups_list)
-            actual_discharge = battery.discharge(discharge_power_amount, time_step)
-            print(f"UPS {ups.ups_id} battery discharged by {actual_discharge:.2f} units")
-
-
-
-def charge_batteries(ups_list, surplus_power, time_step):
-    print(f"Battery 2, Total power surplus: {surplus_power:.2f} units")
-    for ups in ups_list:
-        if ups.online:
-            battery = ups.battery
-            charge_power_amount = surplus_power / len(ups_list)
-            actual_charge = battery.charge(charge_power_amount, time_step)
-            print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
 
 class UPS:
     def __init__(self, ups_id, power_capacity, power_limit, connected_pdu_list, battery, online=True):

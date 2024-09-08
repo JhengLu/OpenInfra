@@ -6,10 +6,11 @@ from server import *
 from wireless import gNB, UE
 from cooling import CoolSys
 from tqdm import tqdm  # Import tqdm correctly
+from water import WaterSys
 
 class Controller:
     def __init__(self, generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
-                 minimal_server_load_percentage, server_max_power, server_idle_power, battery_control_limit, battery_recover_signal):
+                 minimal_server_load_percentage, server_max_power, server_idle_power, battery_control_limit, battery_recover_signal, water_sys):
         self.generator = generator
         self.ups_list = ups_list
         self.pdu_list = pdu_list
@@ -25,6 +26,8 @@ class Controller:
         self.server_idle_power = server_idle_power
         self.received_power = 0
         self.time_step = 1
+        self.water_sys = water_sys
+        self.EWIF_gas = 0.8
 
     @classmethod
     def from_config(cls, config_path):
@@ -37,6 +40,7 @@ class Controller:
         battery_recover_signal = background['battery_recover_signal']
         server_max_power = background['server_max_power']
         server_idle_power = background['server_idle_power']
+        env_temperature = background['env_temperature']
 
         def create_battery(battery_config):
             if battery_config['battery_type'] == 1:
@@ -129,11 +133,14 @@ class Controller:
         # Create cooling system instance
         cool_sys = CoolSys(**config['CoolSys'])
 
+        # Create water system instance
+        water_sys = WaterSys(env_temperature)
+
         # Create power generator
         generator = PowerGenerator(min_power=50, max_power=150)
 
         return cls(generator, ups_list, pdu_list, normal_racks, wireless_racks, gnb_list, ue_list, cool_sys,
-                   minimal_server_load_percentage, server_max_power, server_idle_power, battery_control_limit, battery_recover_signal)
+                   minimal_server_load_percentage, server_max_power, server_idle_power, battery_control_limit, battery_recover_signal,water_sys)
 
     def get_server_power_usage_from_load(self):
         total_power_usage = 0
@@ -156,6 +163,12 @@ class Controller:
         for ups in self.ups_list:
             if ups.online:
                 ups.power_limit = min(0.1 + ups.power_limit, 1)
+
+    def decrease_ups_limit(self):
+        minimal_ups_limit = (len(self.ups_list) - 1 )/ len(self.ups_list)
+        for ups in self.ups_list:
+            if ups.online:
+                ups.power_limit = max(ups.power_limit - 0.1, minimal_ups_limit)
 
     # def control_rack_loads(self):
     #     for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
@@ -185,7 +198,7 @@ class Controller:
 
     def pick_lowest_prio_rack(self):
         for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
-            if rack.max_power_load_percentage > 0:
+            if rack.max_power_load_percentage > rack.min_power_load_percentage:
                 return rack
         print("all racks are 0")
 
@@ -205,9 +218,11 @@ class Controller:
         max_avail_power = self.get_max_avail_power()
 
         current_ups_limit = self.get_ups_limit()
+        total_rack_number = len(self.normal_racks + self.wireless_racks)
 
         '''control for avail power < used power'''
         if (max_avail_power < total_power_usage):
+            decrease_number = 0
             # start from the low priority
             while(max_avail_power < total_power_usage and self.get_ups_limit() < 1):
                 self.increase_ups_limit()
@@ -219,7 +234,8 @@ class Controller:
                 if (rack == None):
                     self.get_total_power_usage()
                     break # assume we use the non-renewable power
-                rack.max_power_load_percentage = max(0, rack.max_power_load_percentage - 10)
+                rack.max_power_load_percentage = max(rack.min_power_load_percentage, rack.max_power_load_percentage - 30)
+                decrease_number = decrease_number + 1
 
                 for server in rack.server_list:
                     if server.load_percentage > rack.max_power_load_percentage:
@@ -230,15 +246,22 @@ class Controller:
                 total_power_usage = self.get_total_power_usage()
         # control for avail power >= used power
         else:
-            total_rack_number = len(self.normal_racks + self.wireless_racks)
+
             updated_number = 0
-            while updated_number < total_rack_number/3:
+            while updated_number < total_rack_number:
                 rack = self.pick_highest_prio_power()
                 if (rack != None):
                     rack.max_power_load_percentage = min(100, rack.max_power_load_percentage + 10)
                     updated_number = updated_number + 1
                 else:
+                    # which means all rack load percentage is 100
+                    avg_battery_soc = sum(ups.battery.soc for ups in self.ups_list if ups.online) / len(
+                            [ups for ups in self.ups_list if ups.online])
+                    if (avg_battery_soc == 1):
+                        self.decrease_ups_limit()
+                    # this break is importance, otherwise there would be infinite loop
                     break
+
 
 
 
@@ -297,6 +320,18 @@ class Controller:
         total_power_usage = server_power_usage + cool_power_usage + other_power_usage
         return total_power_usage
 
+    def get_non_renewable_energy_usage(self, discharged_battery_energy, time_step, total_power_usage):
+        total_online_ups_power = sum(
+            ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
+        print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
+
+        max_outside_power = min(total_online_ups_power, self.received_power)
+
+        if  max_outside_power * time_step + discharged_battery_energy > total_power_usage * time_step:
+            return 0
+        else:
+            return total_power_usage * time_step - (max_outside_power * time_step + discharged_battery_energy )
+
     def start_simulation(self, duration=10):
         print(f"Initial Cooling System Power Usage: {self.cool_sys.cool_load} W")
         google_cpu_usage_trace_csv = load_cpu_usage("data/total_usage.csv")
@@ -310,7 +345,10 @@ class Controller:
                 [f'UPS {ups.ups_id} Deliverable Power' for ups in self.ups_list] +
                 ['Total Power Usage', 'Server Power Usage', 'Cool Power Usage', 'Other Power Usage', 'Online UPS Power'] +
                 [f'Normal Rack {rack.rack_id} Max Load %' for rack in self.normal_racks] +
-                ['Battery Control Limit', 'Battery Recover Signal']
+                ['Battery Control Limit', 'Battery Recover Signal'] +
+                ['Datacenter Water Usage'] +
+                ['Non renewable Energy Usage'] +
+                ['Power Plant Water Usage']
             )
 
             time_step = self.time_step
@@ -319,10 +357,10 @@ class Controller:
                 self.received_power, wind_power, solar_power = self.generator.generate_power(t)
 
                 # create a failure event from the power plant side
-                if 30 <= t <= 50:
-                    solar_power = 0
-                elif 60 <= t <= 70:
+                if 20 <= t <= 40:
                     wind_power = 0
+                # elif 60 <= t <= 70:
+                #     wind_power = 0
                 self.received_power = wind_power + solar_power
 
                 # simulate the server load
@@ -356,11 +394,15 @@ class Controller:
                 if total_power_usage > self.received_power or server_power_usage > total_online_ups_power:
                     deficit_power = max(total_power_usage - self.received_power,
                                         server_power_usage - total_online_ups_power)
-                    discharge_batteries(self.ups_list, deficit_power, time_step)
+                    discharged_energy = discharge_batteries(self.ups_list, deficit_power, time_step)
                 else:
                     surplus_power = self.received_power - total_power_usage
                     charge_batteries(self.ups_list, surplus_power, time_step)
 
+                non_renewable_energy_consumption = self.get_non_renewable_energy_usage(discharged_energy, time_step, total_power_usage) # unit is wh
+                power_plant_water_usage = self.EWIF_gas * (non_renewable_energy_consumption / 1000 ) # unit of EWIF is (L/kWh)
+
+                datacenter_water_usage_liter = self.water_sys.simulate_water_usage(server_power_usage, time_step)
                 writer.writerow(
                     [t, self.received_power, wind_power, solar_power] +
                     [ups.battery.charge_level for ups in self.ups_list] +
@@ -369,7 +411,10 @@ class Controller:
                     [total_power_usage, server_power_usage, cool_power_usage, other_power_usage, total_online_ups_power] +
                     [rack.max_power_load_percentage for rack in self.normal_racks] +
                     [self.battery_control_limit * self.ups_list[0].battery.capacity] +
-                    [self.battery_recover_signal * self.ups_list[0].battery.capacity]
+                    [self.battery_recover_signal * self.ups_list[0].battery.capacity] +
+                    [datacenter_water_usage_liter] +
+                    [non_renewable_energy_consumption] +
+                    [power_plant_water_usage]
                 )
 
 
