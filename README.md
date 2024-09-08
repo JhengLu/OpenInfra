@@ -1,12 +1,18 @@
 # OpenInfra
 
 ## Features
-- Specify online or offline status of UPS
-- Define UPS power limit and capacity
-- Monitor UPS battery charge and discharge
-- Control datacenter power
-- Manage load of racks
-- Create custom datacenter topology, including UPS, PDU, racks, cooling systems, gNB, and user equipment
+
+### Datacenter:
+- Manage UPS status (online/offline), power limits, and capacity
+- Simulate UPS battery charge/discharge
+- Control datacenter power and rack loads
+- Design custom datacenter topology (UPS, PDU, racks, cooling, gNB, user equipment)
+- Simulate water usage for cooling
+
+### Power Plant:
+- Simulate 8 power generation types
+- Simulate water usage for cooling
+
 
 
 ## How to Run
