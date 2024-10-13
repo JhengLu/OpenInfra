@@ -1,10 +1,10 @@
-
-<div style="margin-top: -10px; margin-bottom: -600px;">
-    <img src="figures/openinfra-icon.svg" alt="OpenInfra Icon" width="1024">
+<div style="text-align: center; margin-top: -10px; margin-bottom: -20px;">
+    <img src="figures/openinfra-icon.png" alt="OpenInfra Icon" width="400">
 </div>
 
 
-# OpenInfra
+
+[//]: # (# OpenInfra)
 
 ## Features
 
