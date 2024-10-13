@@ -1,4 +1,8 @@
-![OpenInfra Icon](figures/openinfra-icon.svg)
+
+<div style="margin-top: -10px; margin-bottom: -600px;">
+    <img src="figures/openinfra-icon.svg" alt="OpenInfra Icon" width="1024">
+</div>
+
 
 # OpenInfra
 
