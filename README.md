@@ -1,6 +1,7 @@
-<div style="text-align: center; margin-top: -10px; margin-bottom: -20px;">
-    <img src="figures/openinfra-icon.png" alt="OpenInfra Icon" width="400">
-</div>
+<p align="center">
+  <img src="figures/openinfra-icon.png" alt="OpenInfra Icon" width="400">
+</p>
+
 
 
 
