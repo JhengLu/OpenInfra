@@ -1,3 +1,5 @@
+![OpenInfra Icon](figures/openinfra-icon.svg)
+
 # OpenInfra
 
 ## Features
