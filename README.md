@@ -1,6 +1,7 @@
-<div style="text-align: center; margin-top: -10px; margin-bottom: -20px;">
-    <img src="figures/openinfra-icon.png" alt="OpenInfra Icon" width="400">
-</div>
+<p align="center">
+  <img src="figures/openinfra-icon.png" alt="OpenInfra Icon" width="400">
+</p>
+
 
 Critical infrastructures like datacenters, power grids, and water systems are deeply interdependent, forming a complex “infrastructure nexus” that requires co-optimization for efficiency, resilience, and sustainability. 
 OpenInfra is a co-simulation framework designed to model these interdependencies by integrating domain-specific simulators for datacenters, power plants, and cooling systems. 
@@ -22,9 +23,10 @@ OpenInfra is a co-simulation framework designed to model these interdependencies
 - Simulate 8 power generation types
 - Simulate water usage for cooling
 
-
-
-Here’s a refined version of your text with minor adjustments for clarity and consistency:
+## Setup
+```shell
+pip install -r requirements.txt
+```
 
 ---
 
