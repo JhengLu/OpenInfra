@@ -28,8 +28,6 @@ OpenInfra is a co-simulation framework designed to model these interdependencies
 pip install -r requirements.txt
 ```
 
-Here’s a refined version of your text with minor adjustments for clarity and consistency:
-
 ---
 
 ## Quick Start
