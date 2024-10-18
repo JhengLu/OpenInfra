@@ -48,7 +48,7 @@ Open the `simple_config.json` file to update the simulation attributes.
 Please read and/or cite the following if you use OpenInfra code or data, or if you would like to learn more about OpenInfra.
 
 ```bibtex
-@inproceedings{openinfra-hotinfra22,
+@inproceedings{openinfra-hotinfra24,
   title={OpenInfra: A Co-simulation Framework for the Infrastructure Nexus},
   author={Jiaheng Lu, Yunming Xiao, Shmeelok Chakraborty, Silvery Fu, Yoon Sung Ji, Ang Chen, Mosharaf Chowdhury, Nalini Rao, Sylvia Ratnasamy, Xinyu Wang},
   booktitle={HotInfra},
