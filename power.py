@@ -272,7 +272,7 @@ def get_batteries_max_power_support(ups_list, time_step):
 
 # Modify the existing functions to use the new class
 def discharge_batteries(ups_list, deficit_power, time_step):
-    print(f"Total power deficit: {deficit_power:.2f} units")
+    # print(f"Total power deficit: {deficit_power:.2f} units")
     total_discharged_energy = 0
     for ups in ups_list:
         if ups.online:
@@ -285,13 +285,13 @@ def discharge_batteries(ups_list, deficit_power, time_step):
     return total_discharged_energy
 
 def charge_batteries(ups_list, surplus_power, time_step):
-    print(f"Total power surplus: {surplus_power:.2f} units")
+    # print(f"Total power surplus: {surplus_power:.2f} units")
     for ups in ups_list:
         if ups.online:
             battery = ups.battery
             charge_amount = surplus_power / len(ups_list)
             actual_charge = battery.charge(charge_amount, time_step)
-            print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
+            # print(f"UPS {ups.ups_id} battery charged by {actual_charge:.2f} units")
 
 
 
