@@ -148,7 +148,7 @@ class Controller:
             for server in rack.server_list:
                 server_power_usage = server.simulate_power()
                 total_power_usage += server_power_usage
-                print(f"Server {server.server_id} power usage: {server_power_usage} W")
+                # print(f"Server {server.server_id} power usage: {server_power_usage} W")
         return total_power_usage
 
     def simulate_trivial_power_usage(self, server_power_usage):
@@ -200,7 +200,7 @@ class Controller:
         for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority):
             if rack.max_power_load_percentage > rack.min_power_load_percentage:
                 return rack
-        print("all racks are 0")
+        # print("all racks are 0")
 
     def pick_highest_prio_power(self):
         for rack in sorted(self.normal_racks + self.wireless_racks, key=lambda x: x.priority, reverse=True):
@@ -241,8 +241,8 @@ class Controller:
                     if server.load_percentage > rack.max_power_load_percentage:
                         server.load_percentage = rack.max_power_load_percentage
 
-                if (rack.rack_id == 176):
-                    print("this is the final one")
+                # if (rack.rack_id == 176):
+                    # print("this is the final one")
                 total_power_usage = self.get_total_power_usage()
         # control for avail power >= used power
         else:
@@ -305,7 +305,7 @@ class Controller:
     def get_max_avail_power(self):
         total_online_ups_power = sum(
             ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
-        print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
+        # print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
 
         max_battery_support_power = get_batteries_max_power_support(self.ups_list, self.time_step)
         max_outside_power = min(total_online_ups_power, self.received_power)
@@ -323,7 +323,7 @@ class Controller:
     def get_non_renewable_energy_usage(self, discharged_battery_energy, time_step, total_power_usage):
         total_online_ups_power = sum(
             ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
-        print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
+        # print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
 
         max_outside_power = min(total_online_ups_power, self.received_power)
 
@@ -378,11 +378,11 @@ class Controller:
                 other_power_usage = self.simulate_trivial_power_usage(server_power_usage)
 
                 total_power_usage = server_power_usage + cool_power_usage + other_power_usage
-                print(f"Total Power Usage: {total_power_usage:.2f} W")
+                # print(f"Total Power Usage: {total_power_usage:.2f} W")
 
                 total_online_ups_power = sum(
                     ups.power_capacity * ups.power_limit for ups in self.ups_list if ups.online)
-                print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
+                # print(f"Total UPS capacity limit: {total_online_ups_power:.2f} W")
 
                 deliverable_ups_power = [
                     ups.power_capacity * ups.power_limit if ups.online else 0 for ups in self.ups_list

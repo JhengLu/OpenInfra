@@ -19,7 +19,10 @@
 - Simulate 8 power generation types
 - Simulate water usage for cooling
 
-
+## Setup
+```shell
+pip install -r requirements.txt
+```
 
 ## How to Run
 ```sh

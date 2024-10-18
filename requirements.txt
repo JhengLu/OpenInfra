@@ -1,0 +1,5 @@
+matplotlib==3.8.3
+networkx==3.2.1
+pandas==2.1.3
+pybamm==24.5
+tqdm==4.66.5
