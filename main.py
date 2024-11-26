@@ -84,7 +84,7 @@ def draw_topology(controller):
 
     plt.title("Datacenter Topology")
     plt.savefig('topology.png')
-    plt.show()
+    # plt.show()
 
 
 
