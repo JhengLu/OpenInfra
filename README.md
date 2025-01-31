@@ -51,7 +51,7 @@ Please read and/or cite the following if you use OpenInfra code or data, or if y
 
 ```bibtex
 @inproceedings{openinfra-hotinfra24,
-  title={OpenInfra: A Co-simulation Framework for the Infrastructure Nexus},
+  title={{OpenInfra}: A Co-simulation Framework for the Infrastructure Nexus},
   author={Jiaheng Lu, Yunming Xiao, Shmeelok Chakraborty, Silvery Fu, Yoon Sung Ji, Ang Chen, Mosharaf Chowdhury, Nalini Rao, Sylvia Ratnasamy, Xinyu Wang},
   booktitle={HotInfra},
   year={2024}
