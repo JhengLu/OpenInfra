@@ -92,27 +92,27 @@ class Controller:
             # Assign normal racks to this PDU
             rack_range = pdu_config['connected_rack_id_range']
             for rack_id in range(rack_range[0], rack_range[1] + 1):
+                connected_device_type.append('normal_rack')
+                connected_device_id.append(rack_id)
+                rack = Rack(rack_id + 1, [pdu_config['id']], rack_id + 1)
+                for _ in range(background['number_of_servers_per_rack']):
+                    server = Server(f"Rack-{rack_id + 1}-Server-{_ + 1}", server_idle_power, server_max_power)
+                    rack.add_server(server)
                 if rack_id not in added_rack_ids:
-                    connected_device_type.append('normal_rack')
-                    connected_device_id.append(rack_id)
-                    rack = Rack(rack_id + 1, [pdu_config['id']], rack_id + 1)
-                    for _ in range(background['number_of_servers_per_rack']):
-                        server = Server(f"Rack-{rack_id + 1}-Server-{_ + 1}", server_idle_power, server_max_power)
-                        rack.add_server(server)
                     normal_racks.append(rack)
                     added_rack_ids.add(rack_id)  # Mark the rack as added
 
             # Assign wireless racks to this PDU
             for gnb in config['gNB']:
                 if gnb['connected_rack_id'] in range(rack_range[0], rack_range[1] + 1):
+                    connected_device_type.append('wireless_rack')
+                    connected_device_id.append(gnb['connected_rack_id'])
+                    rack = Rack(gnb['connected_rack_id'] + 1, [pdu_config['id']], gnb['connected_rack_id'] + 1)
+                    for _ in range(background['number_of_servers_per_rack']):
+                        server = Server(f"Wireless-Rack-{rack.rack_id}-Server-{_ + 1}", server_idle_power,
+                                        server_max_power)
+                        rack.add_server(server)
                     if gnb['connected_rack_id'] not in added_rack_ids:
-                        connected_device_type.append('wireless_rack')
-                        connected_device_id.append(gnb['connected_rack_id'])
-                        rack = Rack(gnb['connected_rack_id'] + 1, [pdu_config['id']], gnb['connected_rack_id'] + 1)
-                        for _ in range(background['number_of_servers_per_rack']):
-                            server = Server(f"Wireless-Rack-{rack.rack_id}-Server-{_ + 1}", server_idle_power,
-                                            server_max_power)
-                            rack.add_server(server)
                         wireless_racks.append(rack)
                         added_rack_ids.add(gnb['connected_rack_id'])  # Mark the wireless rack as added
 
