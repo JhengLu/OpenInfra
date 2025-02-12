@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: ./gateway
+    container_name: api-gateway
+    ports:
+      - "5000:5000"  # Expose only the gateway
+    networks:
+      - mynetwork
+    depends_on:
+      - powerplant-service
+      - battery-service
+
+  powerplant-service:
+    build: ./OIPowerPlant  # Corrected path
+    container_name: powerplant-service
+    volumes:
+      - ../data:/app/data
+    networks:
+      - mynetwork
+
+  battery-service:
+    build: ./vessim  # Corrected path
+    container_name: battery-service
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    driver: bridge
